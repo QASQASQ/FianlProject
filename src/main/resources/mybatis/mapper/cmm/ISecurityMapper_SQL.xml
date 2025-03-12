@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.cmm.mapper.ISecurityMapper">
+
+	<!-- 로그인할때 쿼리 김동준 -->
+	<resultMap type="kr.or.ddit.employee.vo.EmployeeVO" id="employeeMap">
+		<id property="emplNo" column="EMPL_NO"/>
+		<result property="emplNo" column="EMPL_NO"/>
+		<result property="emplPwd" column="EMPL_PWD"/>
+		<result property="emplNm" column="EMPL_NM"/>
+		<result property="emplPosition" column="EMPL_POSITION"/>
+		<result property="deptCode" column="DEPT_CODE"/>
+		<result property="teamCode" column="TEAM_CODE"/>
+		<result property="emplSignature" column="EMPL_SIGNATURE"/>
+		<result property="emplBrthdy" column="EMPL_BRTHDY"/>
+		<result property="hireDate" column="HIRE_DATE"/>
+		<result property="retireDate" column="RETIRE_DATE"/>
+		<result property="retireResn" column="RETIRE_RESN"/>
+		<result property="enable" column="ENABLE"/>
+		<result property="profileImgpath" column="PROFILE_IMGPATH"/>
+		<result property="basicSalary" column="BASIC_SALARY"/>
+		<result property="bankCode" column="BANK_CODE"/>
+		<result property="bankName" column="BANK_NAME"/>
+		<result property="account" column="ACCOUNT"/>
+		<result property="zipCode" column="ZIP_CODE"/>
+		<result property="addrMain" column="ADDR_MAIN"/>
+		<result property="addrDetail" column="ADDR_DETAIL"/>
+		<result property="emplTelno" column="EMPL_TELNO"/>
+		<result property="emplGender" column="EMPL_GENDER"/>
+		<result property="emplEmail" column="EMPL_EMAIL"/>
+		<result property="emplHobby" column="EMPL_HOBBY"/>
+		<result property="emplMrnry" column="EMPL_MRNRY"/>
+		<result property="householderAt" column="HOUSEHOLDER_AT"/>
+		<result property="vehicleNumber" column="VEHICLE_NUMBER"/>
+		<collection property="authList" resultMap="authMap"/>
+	</resultMap>
+	
+	<resultMap type="kr.or.ddit.employee.vo.EmpAuthVO" id="authMap">
+		<result property="emplNo" column="EMPL_NO"/>
+		<result property="authCode" column="AUTH_CODE"/>
+	</resultMap>
+ 	<select id="selectEmployee" parameterType="string" resultMap="employeeMap">
+  		SELECT 
+  			e.empl_no
+  			, e.empl_pwd
+  			, e.empl_nm
+  			, e.empl_position
+  			, e.dept_code
+  			, e.team_code
+  			, e.empl_signature
+  			, e.empl_brthdy
+  			, e.hire_date
+  			, e.retire_date
+  			, e.retire_resn
+  			, e.enable
+  			, e.profile_imgpath
+  			, e.basic_salary
+  			, e.bank_code
+  			, e.bank_name
+  			, e.account
+  			, e.zip_code
+  			, e.addr_main
+  			, e.addr_detail
+  			, e.empl_telno
+  			, e.empl_gender
+  			, e.empl_email
+  			, e.empl_hobby
+  			, e.empl_mrnry
+  			, e.householder_at
+  			, e.vehicle_number
+  			, ea.auth_code
+  			, a.auth_flow
+		FROM employee e
+		JOIN emp_auth ea ON e.empl_no = ea.empl_no
+		JOIN auth a ON ea.auth_code = a.auth_code
+		WHERE e.empl_no = #{username}
+		ORDER BY a.auth_flow
+  	</select>
+	<!-- 로그인할때 쿼리 끝 -->
+  	
+</mapper>

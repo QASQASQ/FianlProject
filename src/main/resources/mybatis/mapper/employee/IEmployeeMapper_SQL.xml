@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.employee.mapper.IEmployeeMapper">
+
+	<!-- 신규 사원 생성 시 직위 조회 -->
+	<select id="getPositionCodes" resultType="kr.or.ddit.cmm.vo.CommonCodeVO" parameterType="String">
+		select cc_code, cc_name
+		from common_code
+		where cg_group = #{cgGroup}
+	</select>
+	
+	<!-- 신규 사원 생성 시 부서 조회 -->
+	<select id="getDeptCodes" resultType="kr.or.ddit.employee.vo.DepartmentVO">
+		select dept_code, dept_header, dept_name
+		from department
+	</select>
+	
+	<!-- 신규 사원 생성 시 팀 조회 -->
+	<select id="getTeamCodes" resultType="kr.or.ddit.employee.vo.TeamVO" parameterType="String">
+		select team_code, dept_code, team_header, team_name
+		from team
+		where dept_code = #{deptCode}
+	</select>
+	
+	<!-- 신규 사원 생성 시 은행 조회 -->
+	<select id="getBankCodes" resultType="kr.or.ddit.cmm.vo.CommonCodeVO" parameterType="String">
+		select cc_code, cc_name
+		from common_code
+		where cg_group = #{cgGroup}
+	</select>
+	
+	<!-- 신규 사원 생성 -->
+	<insert id="registerEmployee" parameterType="kr.or.ddit.employee.vo.EmployeeVO">
+		insert into employee
+			(empl_no, empl_pwd, empl_nm, empl_position, dept_code, team_code, empl_brthdy, 
+			hire_date, basic_salary, bank_code, bank_name, account, empl_creatdt)
+		values(
+			#{emplNo}, #{emplPwd}, #{emplNm}, #{emplPosition}, #{deptCode}, #{teamCode}, #{emplBrthdy},
+			#{hireDate}, #{basicSalary}, #{bankCode}, #{bankName}, #{account}, sysdate
+		)
+	</insert>
+	
+	<!-- 신규 사원 생성 시 권한 목록 조회 -->
+	<select id="getAuthList" resultType="kr.or.ddit.employee.vo.AuthVO">
+		select auth_code, auth_name
+		from auth
+	</select>
+	
+	<!-- 신규 사원 생성 시 사원 권한 데이터 삽입 -->
+	<insert id="registerAuth" parameterType="kr.or.ddit.employee.vo.EmpAuthVO">
+		insert into emp_auth (empl_no, auth_code)
+		values(#{emplNo}, #{authCode})
+	</insert>
+	
+	<!-- 사원 정보 조회 -->
+	<select id="getEmplInfo" resultType="kr.or.ddit.employee.vo.EmployeeVO" parameterType="kr.or.ddit.employee.vo.EmployeeVO">
+		select empl_no, empl_pwd, empl_nm,
+		
+				(select cc_name from common_code where cg_group = 'POSITION' and cc_code = #{emplPosition}) as empl_position,
+				(select dept_name from department where dept_code = #{deptCode}) as dept_code, 
+				(select team_name from team where team_code = #{teamCode}) as team_code, 
+				empl_signature,
+				TO_CHAR(empl_brthdy, 'YYYY-MM-DD') as empl_brthdy,
+				TO_CHAR(hire_date, 'YYYY-MM-DD') as hire_date, 
+				retire_date, retire_resn, enable, profile_imgpath, basic_salary,
+				(select cc_name from common_code where cg_group = 'BANKCODE' and cc_code = #{bankCode}) as bank_code, 
+				bank_name, account, zip_code, addr_main, addr_detail, empl_telno, empl_email, empl_hobby, 
+				TO_CHAR(empl_mrnry, 'YYYY-MM-DD') as empl_mrnry, 
+				householder_at,
+				vehicle_number, empl_gender
+		from employee
+		where empl_no = #{emplNo}
+	</select>
+	
+	<update id="employeeUpdate" parameterType="kr.or.ddit.employee.vo.EmployeeVO">
+		update employee
+		set empl_gender = #{emplGender},
+			empl_telno = #{emplTelno},
+			empl_email = #{emplEmail},
+			zip_code = #{zipCode},
+			addr_main = #{addrMain},
+			addr_detail = #{addrDetail},
+			empl_hobby = #{emplHobby},
+			empl_mrnry = #{emplMrnry},
+			householder_at = #{householderAt},
+			vehicle_number = #{vehicleNumber},
+			bank_code = #{bankCode},
+			bank_name = #{bankName},
+			account = #{account}
+		where empl_no = #{emplNo}	
+	</update>
+	
+	<update id="changePwd" parameterType="string">
+		update employee
+		set empl_pwd = #{emplPwd}
+		where empl_no = #{emplNo}
+	</update>
+	
+	<select id="getSomeCode" parameterType="string" resultType="hashmap">
+		select empl_position, dept_code, team_code, bank_code
+		from employee
+		where empl_no = #{userId}
+	</select>
+	
+	<update id="profileImgUpload" parameterType="kr.or.ddit.employee.vo.EmployeeVO">
+		update employee
+		set profile_imgpath = #{profileImgpath}
+		where empl_no = #{emplNo}
+	</update>
+	
+	<select id="getBankCode" resultType="string" parameterType="string">
+		select bank_code
+		from employee
+		where empl_no = #{userId}
+	</select>
+	
+	<update id="saveSignature" parameterType="kr.or.ddit.employee.vo.EmployeeVO">
+		update employee
+		set empl_signature = #{emplSignature}
+		where empl_no = #{emplNo}
+	</update>
+	
+	<select id="getEmpAuth" parameterType="string" resultType="kr.or.ddit.employee.vo.EmpAuthVO">
+		select empl_no, auth_code
+	    from emp_auth
+	    where empl_no = #{userId}
+	    order by case auth_code
+                when 'ROLE_GENERAL' then 1
+                when 'ROLE_MANAGER' then 2
+                when 'ROLE_ADMIN' then 3
+                else 4
+             end
+	</select>
+	
+	<insert id="giveVacation" parameterType="kr.or.ddit.employee.vo.EmployeeVO">
+		INSERT INTO yearly_vacation (
+		    yryc_no,
+		    empl_no,
+		    yryc_total,
+		    yryc_remndr,
+		    yryc_year
+		) VALUES (
+		    yearly_vacation_seq.nextval
+		    ,#{emplNo}
+		    ,20
+		    ,20
+		    ,sysdate
+		)
+	</insert>
+	
+</mapper>

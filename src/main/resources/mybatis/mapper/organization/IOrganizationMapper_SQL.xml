@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.sanction.mapper.IOrganizationMapper">
+
+<select id="getAllDepartments" resultType="kr.or.ddit.employee.vo.DepartmentVO">
+	select dept_code, dept_header, dept_name
+	from department
+</select>
+
+<select id="getTeamsByDept" resultType="kr.or.ddit.employee.vo.TeamVO" parameterType="string">
+	select team_code, dept_code, team_header, team_name
+	from team
+	where dept_code = #{deptCode}
+</select>
+
+<select id="getEmployeesByTeam" resultType="kr.or.ddit.employee.vo.EmployeeVO" parameterType="string">
+	select *
+	from employee
+	where team_code = #{teamCode}
+</select>
+
+</mapper>

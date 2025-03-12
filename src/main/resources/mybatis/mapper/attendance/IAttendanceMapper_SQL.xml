@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.attendance.mapper.IAttendanceMapper">
+
+	<sql id="dalDateSearch">
+		<if test="dateStart != null and dateStart != ''">
+			<![CDATA[AND TO_DATE(dclz_date) >= TO_DATE(#{dateStart})]]>
+		</if>
+		<if test="dateEnd != null and dateEnd != ''">
+			<![CDATA[AND TO_DATE(dclz_date) <= TO_DATE(#{dateEnd})]]>
+		</if>
+	</sql>
+	 <sql id="dalMemberDateSearch">
+		<if test="pageVO.dateStart != null and pageVO.dateStart != ''">
+			<![CDATA[AND TO_DATE(dclz_date) >= TO_DATE(#{pageVO.dateStart})]]>
+		</if>
+		<if test="pageVO.dateEnd != null and pageVO.dateEnd != ''">
+			<![CDATA[AND TO_DATE(dclz_date) <= TO_DATE(#{pageVO.dateEnd})]]>
+		</if>
+	</sql>
+  	<sql id="dalMemberNameSearch">
+		<if test="emplNm != null and emplNm != ''">
+			AND empl_nm LIKE '%' || #{emplNm} || '%'
+		</if>
+	</sql>
+	
+	<!-- 출근하기 -->
+	<insert id="insertDiligenceAndLaziness" parameterType="String">
+		INSERT INTO diligence_and_laziness (
+			  dclz_no
+			, empl_no
+			, dclz_date
+			, dclz_stime
+			, dclz_type
+		)
+		VALUES(
+			  diligence_and_laziness_seq.nextval
+			, #{emplNo}
+			, sysdate
+			, sysdate
+			, '01'
+		)
+	</insert>
+	
+	<!-- 나의 출퇴근목록 가져오기 -->
+	<select id="selectDiligenceAndLazinessList" parameterType="kr.or.ddit.cmm.vo.PaginationInfoVO" resultType="kr.or.ddit.attendance.vo.DiligenceAndLazinessVO">
+	  	SELECT
+			*
+		FROM (
+	    	SELECT 
+				a.*
+				, ROW_NUMBER() OVER (ORDER BY a.dclz_no DESC) rnum
+	    	FROM (
+		        SELECT 
+		            dclz_no
+		            , empl_no
+		            , dclz_date
+		            , dclz_stime
+		            , dclz_etime
+		            , t.cc_name as dclz_status
+		            , c.cc_name as dclz_type
+		        FROM diligence_and_laziness d
+		        LEFT JOIN common_code c ON d.dclz_type = c.cc_code AND c.cg_group = 'DCLZ_TYPE'
+		        LEFT JOIN common_code t ON d.dclz_status = t.cc_code AND t.cg_group = 'DCLZ_STATUS'
+		        WHERE 1=1
+		        AND empl_no = #{emplNo}
+		        <include refid="dalDateSearch"/>
+		        ORDER BY dclz_no DESC
+		    <include refid="CmmSQL.pagingFooter"/>
+	</select>
+	
+	<!-- 퇴근처리 -->
+	<update id="updateDiligenceAndLazinessForGoHome" parameterType="string">
+		UPDATE diligence_and_laziness
+		SET dclz_etime = sysdate
+			, dclz_type = '02'
+			, dclz_status = '01'
+		WHERE empl_no = #{emplNo}
+		AND dclz_no = (
+				SELECT MAX(dclz_no)
+			    FROM diligence_and_laziness
+			    WHERE empl_no = #{emplNo}
+		    )
+	</update>
+  	
+  	<!-- 나의 출퇴근기록 개수 가져오기 -->
+  	<select id="selectDalCount" resultType="int" parameterType="kr.or.ddit.cmm.vo.PaginationInfoVO">
+  		SELECT COUNT(dclz_no)
+  		FROM diligence_and_laziness
+  		WHERE empl_no = #{emplNo}
+  		<include refid="dalDateSearch"/>
+  	</select>
+  	
+  	<!-- 나의 마지막 출퇴근 기록 가져오기 -->
+  	<select id="selectLastDal" resultType="kr.or.ddit.attendance.vo.DiligenceAndLazinessVO" parameterType="string">
+		SELECT
+		    dclz_no
+		    , empl_no
+		    , dclz_date
+		    , dclz_stime
+		    , dclz_etime
+		    , dclz_status
+		    , dclz_type
+		FROM
+		(
+		    SELECT 
+		        dclz_no
+		        , empl_no
+		        , dclz_date
+		        , dclz_stime
+		        , dclz_etime
+		        , dclz_status
+		        , dclz_type
+		    FROM diligence_and_laziness
+		    WHERE empl_no = #{emplNo}
+		    ORDER BY dclz_no DESC
+		)
+		WHERE rownum = 1
+  	</select>
+  	
+	<!-- 부서원 기록 개수 가져오기 -->
+  	<select id="selectDalMemberCount" resultType="int" parameterType="map">
+		SELECT COUNT(dclz_no)
+		FROM diligence_and_laziness
+		WHERE empl_no IN (
+		    SELECT empl_no
+		    FROM employee
+		    WHERE dept_code = #{deptCode}
+		    <include refid="dalMemberNameSearch"/>
+		)
+		<if test="emplNo != null and emplNo != ''">
+			AND empl_no = #{emplNo}
+		</if>
+		<include refid="dalMemberDateSearch"/>
+  	</select>
+  	
+  	<!-- 부서원 기록 가져오기 -->
+  	<select id="selectMemberDiligenceAndLazinessList" parameterType="map" resultType="kr.or.ddit.attendance.vo.DiligenceAndLazinessVO">
+	  	SELECT
+			*
+		FROM (
+	    	SELECT 
+				a.*
+				, ROW_NUMBER() OVER (ORDER BY a.dclz_no DESC) rnum
+	    	FROM (
+	        SELECT 
+	            dclz_no
+	            , empl_no
+	            , (select empl_nm from employee where empl_no = d.empl_no) as emplNm
+	            , dclz_date
+	            , dclz_stime
+	            , dclz_etime
+	            , t.cc_name as dclz_status
+	            , c.CC_NAME as dclz_type
+	        FROM diligence_and_laziness d
+	        LEFT JOIN common_code c ON d.dclz_type = c.cc_code AND c.cg_group = 'DCLZ_TYPE'
+	        LEFT JOIN common_code t ON d.dclz_status = t.cc_code AND t.cg_group = 'DCLZ_STATUS'
+	        WHERE 1=1
+	        AND empl_no IN (
+			    SELECT empl_no
+			    FROM employee
+			    WHERE dept_code = #{deptCode}
+			    <include refid="dalMemberNameSearch"/>
+			)
+			<if test="emplNo != null and emplNo != ''">
+				AND b.empl_no = #{emplNo}
+			</if>
+			ORDER BY dclz_no DESC
+    	<include refid="CmmSQL.pagingFooterWithVO"/>
+		<include refid="dalMemberDateSearch"/>
+  	</select>
+  	
+  	<!-- 결근처리할때 사원의 가장 마지막 출퇴근기록 가져오기 -->
+  	<select id="selectMemberDclz" resultType="kr.or.ddit.attendance.vo.DiligenceAndLazinessVO">
+		SELECT empl_no, dclz_date
+		FROM (
+		    SELECT 
+		        dclz_no,
+		        empl_no,
+		        dclz_date,
+		        dclz_stime,
+		        dclz_etime,
+		        dclz_status,
+		        dclz_type,
+		        ROW_NUMBER() OVER (PARTITION BY empl_no ORDER BY dclz_date DESC) AS rn
+		    FROM diligence_and_laziness
+		) T
+		WHERE RN = 1
+  	</select>
+  	
+  	<!-- 결근처리 -->
+  	<insert id="insertAbsent" parameterType="string">
+		INSERT INTO diligence_and_laziness (
+			  dclz_no
+			, empl_no
+			, dclz_date
+			, dclz_stime
+			, dclz_etime
+			, dclz_type
+			, dclz_status
+		)
+		VALUES(
+			  diligence_and_laziness_seq.nextval
+			, #{emplNo}
+			, sysdate
+			, TRUNC(SYSDATE)
+			, TRUNC(SYSDATE)
+			, '02'
+			, '04'
+		)
+  	</insert>
+  	
+  	<select id="selectThisMonthData" parameterType="string" resultType="java.util.Map">
+		SELECT 
+		    (
+		        SELECT COUNT(dclz_no)
+		        FROM diligence_and_laziness
+		        <![CDATA[WHERE  dclz_date >= TRUNC(SYSDATE, 'MM')
+		        AND dclz_date < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), 1)]]>
+		        AND empl_no = #{emplNo}
+		        AND DCLZ_STATUS = '02'
+		    ) AS late
+		    ,(
+		        SELECT COUNT(dclz_no)
+		        FROM diligence_and_laziness
+		        <![CDATA[WHERE  dclz_date >= TRUNC(SYSDATE, 'MM')
+		        AND dclz_date < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), 1)]]>
+		        AND empl_no = #{emplNo}
+		        AND DCLZ_TYPE = '02'
+		    ) AS normal
+		    ,(
+		        SELECT TRUNC(SUM((HIS_ETIME - HIS_STIME) * 24)) AS total_hours
+		        FROM HISTORY
+		        <![CDATA[WHERE HIS_SDATE >= TRUNC(SYSDATE, 'MM')
+		        AND HIS_SDATE < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), 1)]]>
+		        AND empl_no = #{emplNo}
+		        AND HIS_TYPE = '01'
+		    ) AS overtimeHour
+		FROM dual
+  	</select>
+  	
+</mapper>

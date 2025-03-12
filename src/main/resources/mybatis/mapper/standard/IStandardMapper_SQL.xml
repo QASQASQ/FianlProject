@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.standard.mapper.IStandardMapper">
+<!-- domain명(kr.or.hrms)를 붙여주는 이유는 전세계에서 하나밖에 없기 때문. 충돌 방지 -->
+<!-- sql 이름을 mapper 이름에서 가져오는 이유 : 해당 Mapper와 연결됨을 한 눈에 파악하기 위해서. -->
+
+</mapper>

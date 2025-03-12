@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.dclz.mapper.IDclzMapper">
+	<sql id="dalDateSearch">
+		<if test="dateStart != null and dateStart != ''">
+			<![CDATA[AND TO_DATE(dclz_date) >= TO_DATE(#{dateStart})]]>
+		</if>
+		<if test="dateEnd != null and dateEnd != ''">
+			<![CDATA[AND TO_DATE(dclz_date) <= TO_DATE(#{dateEnd})]]>
+		</if>
+	</sql>
+
+	<select id="getOverTimeTotalRecord">
+		SELECT COUNT(his_no)
+  		FROM history
+  		WHERE empl_no = #{emplNo}
+  		<include refid="dalDateSearch"/>
+	</select>
+	
+  	<select id="getOvertimeList" parameterType="kr.or.ddit.cmm.vo.PaginationInfoVO" resultType="kr.or.ddit.sanction.vo.HistoryVO">
+  		SELECT
+			*
+		FROM (
+	    	SELECT 
+				a.*
+				, ROW_NUMBER() OVER (ORDER BY a.his_no DESC) rnum
+	    	FROM (
+		  		SELECT
+				    his_no,
+				    empl_no,
+				    his_type,
+				    his_sdate,
+				    his_edate,
+				    his_stime,
+				    his_etime,
+				    his_creatdt
+				FROM
+				    history
+		        WHERE 1=1
+		        AND empl_no = #{emplNo}
+		        AND his_type = '01'
+        		<include refid="dalDateSearch"/>
+				ORDER BY his_no DESC
+		<include refid="CmmSQL.pagingFooter"/>
+  	</select>
+</mapper>

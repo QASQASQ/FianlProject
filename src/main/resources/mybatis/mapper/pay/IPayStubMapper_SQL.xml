@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- ✅ 네임스페이스 확인 -->
+<mapper namespace="kr.or.ddit.pay.mapper.IPayStubMapper">
+
+    <!-- ✅ 확정된 급여 명세서만 조회하는 쿼리 -->
+    <select id="selectMyPayStubs" parameterType="map" resultType="kr.or.ddit.pay.vo.PayStubVO">
+        SELECT 
+              ps_no
+            , empl_no
+            , total_payment
+            , total_deduction
+            , actual_salary
+            , basic_salary
+            , overtime_pay
+            , ps_bonus
+            , meal_pay
+            , income_tax
+            , local_tax
+            , employment_insurance
+            , health_insurance
+            , nursing_insurance
+            , national_pension
+            , pay_date
+            , pay_at
+        FROM pay_stub
+        WHERE empl_no = #{emplNo}
+        AND pay_at = 'Y'
+        <if test="yearr != null and yearr != ''">
+            AND TO_CHAR(pay_date, 'YYYY') = #{yearr}
+        </if>
+        <if test="monthh != null and monthh != ''">
+            AND TO_CHAR(pay_date, 'MM') = #{monthh}
+        </if>
+        <if test="dayy != null and dayy != ''">
+            AND TO_CHAR(pay_date, 'DD') = #{dayy}
+        </if>
+        ORDER BY pay_date DESC
+    </select>
+
+    <!-- ✅ 지급된 급여 명세서 조회 + 포지션 코드별 직급명 매핑 -->
+    <select id="getPaidPayStub" parameterType="string" resultType="map">
+        SELECT 
+              ps.basic_salary
+            , ps.overtime_pay
+            , ps.meal_pay
+            , ps.ps_bonus
+            , ps.income_tax
+            , ps.local_tax
+            , ps.employment_insurance
+            , ps.health_insurance
+            , ps.nursing_insurance
+            , ps.national_pension
+            , ps.total_payment
+            , ps.actual_salary
+            , TO_CHAR(ps.pay_date, 'YYYY-MM-DD') AS payDate
+            , ps.pay_at
+            , e.empl_position
+            , CASE e.empl_position
+                WHEN '01' THEN '사원'
+                WHEN '02' THEN '대리'
+                WHEN '03' THEN '과장'
+                WHEN '04' THEN '차장'
+                WHEN '05' THEN '부장'
+                ELSE '직급 미정'
+            END AS positionName
+            , d.dept_name
+            , e.empl_nm
+            , CASE WHEN SYSDATE - ps.pay_date &gt;= 30 
+                THEN 'Y' 
+                ELSE 'N' 
+            END AS pay_eligible
+        FROM pay_stub ps
+        JOIN employee e ON ps.empl_no = e.empl_no
+        JOIN department d ON e.dept_code = d.dept_code
+        WHERE ps.empl_no = #{emplNo}
+        AND ps.pay_at = 'Y'
+        ORDER BY ps.pay_date DESC
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
+
+    <!-- ✅ 미리보기 급여 명세서 생성 (프로시저 호출) -->
+    <update id="generatePayStubPreview" parameterType="string">
+        {CALL GENERATE_PAY_STUB(#{emplNo})}
+    </update>
+
+    <!-- ✅ 미리보기 급여 명세서 조회 -->
+    <select id="getPayStubPreview" parameterType="string" resultType="map">
+        SELECT 
+              basic_salary
+            , overtime_pay
+            , meal_pay
+            , ps_bonus
+            , income_tax 
+            , local_tax
+            , employment_insurance
+            , health_insurance
+            , nursing_insurance
+            , national_pension
+            , total_payment
+            , actual_salary
+            , TO_CHAR(pay_date, 'YYYY-MM-DD') AS payDate
+            , pay_at
+            , 'Y' AS pay_eligible
+        FROM pay_stub
+        WHERE empl_no = #{emplNo}
+        AND pay_at = 'N'
+        ORDER BY pay_date DESC
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
+     <!-- 기존 미리보기 데이터 삭제 -->
+    <delete id="deletePreviewPayStub" parameterType="string">
+        DELETE FROM pay_stub
+        WHERE empl_no = #{emplNo}
+        AND pay_at = 'N'
+    </delete>
+
+    <!-- 명세서 다운로드 -->
+    <update id="generatePayStub" parameterType="string">
+        {CALL GENERATE_PAY_STUB(#{emplNo})}
+    </update>
+
+    <!-- pay_at 상태 'Y'로 업데이트 -->
+    <update id="updatePayStatus" parameterType="string">
+        UPDATE pay_stub
+        SET pay_at = 'Y'
+        WHERE empl_no = #{emplNo}
+        AND pay_at = 'N'
+    </update>
+
+
+</mapper>

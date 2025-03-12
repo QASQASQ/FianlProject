@@ -1,0 +1,25 @@
+@charset "UTF-8";
+
+.info{
+  font-weight: bold;
+  width: 150px;
+}
+#detail{
+  height: 300px;
+}
+td{
+  height: 50px;
+  text-align: center;
+}
+#remark{
+  text-align: left;
+}
+
+h1{
+	text-align: center;
+}
+
+#aprDiv{
+	margin-left: auto;
+    margin-right: 0;
+}

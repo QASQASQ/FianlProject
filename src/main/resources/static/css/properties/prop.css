@@ -1,0 +1,12 @@
+@charset "UTF-8";
+
+#grid {
+	width: 99%;
+	height: 600px;
+	margin: 20px 0;
+}
+.tui-grid-pagination {
+   display: flex;
+   justify-content: center; /* 중앙 정렬 */
+   margin-top: 20px;       /* 위쪽 여백 */
+}

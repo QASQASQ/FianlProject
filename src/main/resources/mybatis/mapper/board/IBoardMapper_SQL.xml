@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.board.board.mapper.IBoardMapper">
+
+	<sql id="boardSearch">
+		<if test="searchType != null and searchType == 'title'">
+			where (board_title like '%' ||#{searchWord}|| '%')
+		</if>
+		<if test="searchType != null and searchType == 'writer'">
+			where (board_writer like '%' ||#{searchWord}|| '%')
+		</if>
+	</sql>
+	<select id="selectSeq" resultType="String">
+		SELECT
+			doc_file_seq.nextval
+		FROM dual	
+	</select>
+	
+	<!--등록  -->
+	<insert id="boardInsert" parameterType="kr.or.ddit.board.board.vo.BoardVO">
+		<selectKey resultType="String" keyProperty="boardNo" order="BEFORE">
+			SELECT board_seq.nextval FROM dual
+		</selectKey>
+		INSERT INTO board(
+			board_no
+			,board_writer
+			,board_title
+			,board_content
+			,board_date
+			,board_anon
+			,board_hit
+			,file_identify
+		)VALUES(
+			 #{boardNo}
+			,#{boardWriter}
+			,#{boardTitle}
+			,#{boardContent}
+			,sysdate
+			,#{boardAnon}
+			,0
+			,#{fileIdentify}
+		)
+	</insert>
+	<update id="incrementHit" parameterType="String">
+		UPDATE	board
+		SET	board_hit = board_hit + 1
+		WHERE board_no = #{boardNo}
+	</update>
+
+<!--게시판 상세  -->
+	<select id="selectBoard" parameterType="String" resultType="kr.or.ddit.board.board.vo.BoardVO">
+		SELECT
+			 board_no
+			,board_writer
+			,board_title
+			,board_content
+			,board_date
+			,board_udate
+			,board_anon
+			,board_hit
+			,file_identify
+		FROM board
+		WHERE board_no = #{boardNo}
+	</select>
+	
+	<select id="selectCount" resultType="int" parameterType="kr.or.ddit.cmm.vo.PaginationInfoVO">
+		SELECT COUNT(board_no)
+		FROM board
+		<include refid="boardSearch"/>
+	</select>
+	
+	<select id="boardList" resultType="kr.or.ddit.board.board.vo.BoardVO" parameterType="kr.or.ddit.cmm.vo.PaginationInfoVO">
+		SELECT
+				b.*		
+		FROM(
+			SELECT
+				a.*, row_number() over (order by a.board_no desc)rnum
+				FROM(
+					SELECT 
+						 board_no
+						,board_writer
+						,board_title
+						,board_content
+						,board_date
+						,board_udate
+						,board_anon
+						,board_hit
+						,file_identify
+					FROM board
+					<include refid="boardSearch"/>
+					ORDER BY board_no desc
+				)a
+		)b
+		<![CDATA[
+			WHERE b.rnum >= #{startRow} and b.rnum <= #{endRow}
+		]]>
+	</select>
+	
+	<!--수정  -->
+	<update id="boardUpdate" parameterType="kr.or.ddit.board.board.vo.BoardVO">
+		UPDATE	board 
+		SET	
+			 board_title = #{boardTitle}
+			,board_content = #{boardContent}
+			,board_udate = sysdate
+		WHERE	board_no = #{boardNo}
+	</update>
+	
+	<!--삭제할 파일 리스트 삭제하기  -->
+	<delete id="deleteFileList" parameterType="String">
+		DELETE FROM	doc_file 
+		WHERE	file_identify = #{fileIdentify}
+	</delete>
+	
+	<delete id="boardDelete" parameterType="String">
+		DELETE FROM board
+		WHERE board_no = #{boardNo}
+	</delete>
+	
+</mapper>

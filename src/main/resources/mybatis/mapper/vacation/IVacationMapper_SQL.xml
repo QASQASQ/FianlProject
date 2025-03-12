@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.vacation.mapper.IVacationMapper">
+
+	<resultMap type="kr.or.ddit.employee.vo.EmployeeVO" id="emplVO">
+		<id property="emplNo" column="EMPL_NO"/>
+		<result property="emplNm" column="EMPL_NM"/>
+		<result property="emplPosition" column="EMPL_POSITION"/>
+		<result property="deptCode" column="DEPT_CODE"/>
+		<result property="teamCode" column="TEAM_CODE"/>
+		
+		<association property="yearlyVacationVO" javaType="kr.or.ddit.vacation.vo.YearlyVacationVO">
+        	<id property="yrycNo" column="YRYC_NO"/>
+        	<result property="yrycTotal" column="YRYC_TOTAL"/>
+        	<result property="yrycUsage" column="YRYC_USAGE"/>
+        	<result property="yrycRemndr" column="YRYC_REMNDR"/>
+        	<result property="yrycYear" column="YRYC_YEAR"/>
+		</association>
+	</resultMap>
+	
+	<select id="getMemberTotalRecord" resultType="int">
+		SELECT
+			count(empl_no)
+		FROM employee
+		WHERE 1=1
+		AND dept_code = #{deptCode}
+		<if test="pageVO.emplNo != null and pageVO.emplNo != ''">
+			AND empl_no LIKE '%' || #{pageVO.emplNo} || '%'
+		</if>
+		<if test="emplNm != null and emplNm != ''">
+			AND empl_nm LIKE '%' || #{emplNm} || '%'
+		</if>
+	</select>
+	
+	<select id="getMemberVacation" resultMap="emplVO">
+		select
+			b.*
+		from (
+		    select 
+		    	a.*
+		        , ROW_NUMBER() OVER (ORDER BY a.empl_creatdt DESC) rnum
+		    FROM (
+		        SELECT
+				    e.empl_no
+				    , empl_nm
+                    , empl_creatdt
+				    , c.cc_name as empl_position
+				    , d.dept_name as dept_code
+				    , t.team_name as team_code
+				    , NVL(y.yryc_no,0) as yryc_no
+					, NVL(y.yryc_total,0) as yryc_total
+					, NVL(y.yryc_usage,0) as yryc_usage
+					, NVL(y.yryc_remndr,0) as yryc_remndr
+		        FROM employee e
+		        LEFT JOIN yearly_vacation y ON e.empl_no = y.empl_no
+		        LEFT JOIN common_code c ON e.EMPL_POSITION = c.cc_code AND c.cg_group = 'POSITION'
+				LEFT JOIN DEPARTMENT d ON e.dept_code = d.dept_code
+				LEFT JOIN TEAM t ON e.team_code = t.team_code
+		        WHERE 1=1
+				AND e.dept_code = #{deptCode}
+				<if test="pageVO.emplNo != null and pageVO.emplNo != ''">
+					AND e.empl_no LIKE '%' || #{pageVO.emplNo} || '%'
+				</if>
+				<if test="emplNm != null and emplNm != ''">
+					AND e.empl_nm LIKE '%' || #{emplNm} || '%'
+				</if>
+		        ORDER BY e.empl_creatdt DESC
+			<include refid="CmmSQL.pagingFooterWithVO"/>
+	</select>
+	
+	<select id="getMemberVacationHistoryTotalRecord" resultType="int">
+		SELECT
+			COUNT(his_no)
+		FROM history
+		WHERE empl_no = #{emplNo}
+		AND his_type = '03'
+		<if test="dateStart != null and dateStart != ''">
+			AND TO_DATE(his_sdate) >= TO_DATE(#{dateStart})
+		</if>
+		<if test="dateEnd != null and dateEnd != ''">
+			<![CDATA[AND TO_DATE(his_edate) <= TO_DATE(#{dateEnd})]]>
+		</if>
+	</select>
+	
+	<select id="getMemberVacationList" resultType="kr.or.ddit.sanction.vo.HistoryVO">
+		SELECT
+			b.*
+		FROM (
+		    SELECT 
+		    	a.*
+		        , ROW_NUMBER() OVER (ORDER BY a.his_no DESC) rnum
+		    FROM (
+				select
+					his_no
+					, empl_no
+					, his_type
+					, his_sdate
+					, his_edate
+					, his_stime
+					, his_etime
+					, his_creatdt
+				FROM history
+				WHERE empl_no = #{emplNo}
+				AND his_type = '03'
+				<if test="dateStart != null and dateStart != ''">
+					AND TO_DATE(his_sdate) >= TO_DATE(#{dateStart})
+				</if>
+				<if test="dateEnd != null and dateEnd != ''">
+					<![CDATA[AND TO_DATE(his_edate) <= TO_DATE(#{dateEnd})]]>
+				</if>
+		<include refid="CmmSQL.pagingFooter"/>
+	</select>
+	
+</mapper>

@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.education.mapper.IEducationMapper">
+	
+	<sql id="edcTitleSearch">
+		<if test="edcTitle != null and edcTitle != ''">
+			AND edc_title LIKE '%' || #{edcTitle} || '%'
+		</if>
+	</sql>
+	
+	<sql id="educatorSearch">
+		<if test="educator != null and educator != ''">
+			AND educator LIKE '%' || #{educator} || '%'
+		</if>
+	</sql>
+	
+	<sql id="edcTargetSearch">
+		<if test="edcTarget != null and edcTarget != ''">
+			AND edc_target LIKE '%' || #{edcTarget} || '%'
+		</if>
+	</sql>
+	
+	<sql id="edcSortSearch">
+		<if test="edcSort != null and edcSort != ''">
+			AND edc_sort LIKE '%' || #{edcSort} || '%'
+		</if>
+	</sql>
+	
+	<!--  list  -->
+		<sql id="edcTitleSearchList">
+		<if test="education.edcTitle != null and education.edcTitle != ''">
+			AND edc_title LIKE '%' || #{education.edcTitle} || '%'
+		</if>
+	</sql>
+	
+	<sql id="educatorSearchList">
+		<if test="education.educator != null and education.educator != ''">
+			AND educator LIKE '%' || #{education.educator} || '%'
+		</if>
+	</sql>
+	
+	<sql id="edcTargetSearchList">
+		<if test="education.edcTarget != null and education.edcTarget != ''">
+			AND edc_target LIKE '%' || #{education.edcTarget} || '%'
+		</if>
+	</sql>
+	
+	<sql id="edcSortSearchList">
+		<if test="education.edcSort != null and education.edcSort != ''">
+			AND edc_sort LIKE '%' || #{education.edcSort} || '%'
+		</if>
+	</sql>
+
+	<insert id="insertBook" parameterType="kr.or.ddit.education.vo.BookVO">
+	INSERT INTO book (
+		  BOOK_NO
+		, BOOK_NAME 
+		, BOOK_PRICE 
+		, BOOK_COMPANY 
+	)
+    VALUES (
+    	  #{bookNo}
+    	, #{bookName}
+    	, #{bookPrice}
+    	, #{bookCompany}
+    )
+	</insert>
+	
+	<!-- 유저 - 나의 교육 조회 -->
+	<select id="selectEducationListCount" resultType="int" parameterType="kr.or.ddit.education.vo.EducationVO">
+		SELECT COUNT(edc_no)
+		FROM education
+		WHERE 1=1
+			<include refid="edcTitleSearch"/>
+			<include refid="educatorSearch"/>
+			<include refid="edcTargetSearch"/>
+			<include refid="edcSortSearch"/>
+	</select>
+	
+	<select id="selectEducationList" parameterType="map" resultType="kr.or.ddit.education.vo.EducationVO">
+		select * 
+		from (
+		    select EDC_NO
+		    ,EDC_SORT
+		    ,EDC_WAY
+		    ,EDUCATOR
+		    ,EDC_TARGET
+		    ,EDC_GRADE
+		    ,EDC_PSNCPA
+		    ,EDC_TITLE
+		    ,EDC_CONTENT
+		    ,RECRUIT_SDATE
+		    ,RECRUIT_EDATE
+		    ,EDC_SDATE
+		    ,EDC_EDATE
+		    ,EDC_ACTIVE
+		    ,ROW_NUMBER() OVER (ORDER BY a.edc_no DESC) rnum
+		    from (
+		        SELECT *
+		        FROM education
+		        WHERE 1=1
+		    <include refid="edcTitleSearchList"/>
+			<include refid="educatorSearchList"/>
+			<include refid="edcTargetSearchList"/>
+			<include refid="edcSortSearchList"/>
+		        ) a
+		    where edc_active = 'Y'
+		    ) b
+		<![CDATA[
+			WHERE b.rnum >= #{page.startRow} AND b.rnum <= #{page.endRow}
+		]]>
+	</select>
+	
+	
+	
+	
+	<!-- 교육 상세 정보 조회 1 -->
+    <select id="getEducationDetail" parameterType="int" resultType="kr.or.ddit.education.vo.EducationVO">
+        SELECT
+		    edc_no AS edcNo,
+		    edc_sort AS edcSort,
+		    edc_way AS edcWay,
+		    educator,
+		    edc_target AS edcTarget,
+		    edc_grade AS edcGrade,
+		    edc_psncpa AS edcPsncpa,
+		    edc_title AS edcTitle,
+		    edc_content AS edcContent,
+		    TO_CHAR(recruit_sdate, 'YYYY-MM-DD HH24:MI') AS recruitSdateFormatted,
+		    TO_CHAR(recruit_edate, 'YYYY-MM-DD HH24:MI') AS recruitEdateFormatted,
+		    TO_CHAR(edc_sdate, 'YYYY-MM-DD HH24:MI') AS edcSdateFormatted,
+		    TO_CHAR(edc_edate, 'YYYY-MM-DD HH24:MI') AS edcEdateFormatted,
+		    edc_active AS edcActive
+		FROM education
+		WHERE edc_no = #{edcNo}
+
+    </select>
+
+  <!--  교육 커리큘럼 조회 2 -->
+    <select id="getCurriculumByEdcNo" parameterType="int" resultType="kr.or.ddit.education.vo.CurriculumVO">
+	    SELECT 
+	          c.cur_no 
+	        , c.cur_name
+	        , c.cur_explain
+	        , c.cur_url
+	        , e.edc_no AS edcNo
+	    FROM curriculum c
+	    JOIN education e ON c.cur_no = e.cur_no
+	    WHERE e.edc_no = #{edcNo}
+	    ORDER BY cur_no ASC 
+	</select>
+
+    <!-- 교육 관련 도서 조회  3 -->
+    <select id="getBooksByEdcNo" parameterType="int" resultType="kr.or.ddit.education.vo.BookVO">
+        SELECT 
+            b.book_no AS bookNo,
+            b.book_name AS bookName,
+            b.book_price AS bookPrice,
+            b.book_company AS bookCompany,
+            e.edc_no AS edcNo
+        FROM book b
+        JOIN education e ON b.book_no = e.book_no
+        WHERE e.edc_no = #{edcNo}
+    </select>
+    
+    
+    <!-- 관리자의 교육 상세 정보 조회 1 -->
+    <select id="getEducationAdminDetail" parameterType="int" resultType="kr.or.ddit.education.vo.EducationVO">
+        SELECT
+		    edc_no AS edcNo,
+		    edc_sort AS edcSort,
+		    edc_way AS edcWay,
+		    educator,
+		    edc_target AS edcTarget,
+		    edc_grade AS edcGrade,
+		    edc_psncpa AS edcPsncpa,
+		    edc_title AS edcTitle,
+		    edc_content AS edcContent,
+		    TO_CHAR(recruit_sdate, 'YYYY-MM-DD HH24:MI') AS recruitSdateFormatted,
+		    TO_CHAR(recruit_edate, 'YYYY-MM-DD HH24:MI') AS recruitEdateFormatted,
+		    TO_CHAR(edc_sdate, 'YYYY-MM-DD HH24:MI') AS edcSdateFormatted,
+		    TO_CHAR(edc_edate, 'YYYY-MM-DD HH24:MI') AS edcEdateFormatted,
+		    edc_active AS edcActive
+		FROM education
+		WHERE edc_no = #{edcNo}
+
+    </select>
+
+  <!--  관리자의 교육 커리큘럼 조회 2 -->
+    <select id="getCurriculumAdminByEdcNo" parameterType="int" resultType="kr.or.ddit.education.vo.CurriculumVO">
+	    SELECT 
+	          c.cur_no 
+	        , c.cur_name
+	        , c.cur_explain
+	        , c.cur_url
+	        , c.cur_order
+	        , c.cur_title
+	        , e.edc_no AS edcNo
+	    FROM curriculum c
+	    JOIN education e ON c.cur_no = e.cur_no
+	    WHERE e.edc_no = #{edcNo}
+	    ORDER BY cur_no ASC 
+	</select>
+
+    <!-- 관리자의 교육 관련 도서 조회 3 -->
+    <select id="getBooksAdminByEdcNo" parameterType="int" resultType="kr.or.ddit.education.vo.BookVO">
+        SELECT 
+            b.book_no AS bookNo,
+            b.book_name AS bookName,
+            b.book_price AS bookPrice,
+            b.book_company AS bookCompany,
+            e.edc_no AS edcNo
+        FROM book b
+        JOIN education e ON b.book_no = e.book_no
+        WHERE e.edc_no = #{edcNo}
+    </select>
+    
+    
+    <!-- 나의 교육 내용 조회 1 -->
+    <select id="getEducationMyLectureDetail" parameterType="int" resultType="kr.or.ddit.education.vo.EducationVO">
+        SELECT
+		    edc_no AS edcNo,
+		    edc_sort AS edcSort,
+		    edc_way AS edcWay,
+		    educator,
+		    edc_target AS edcTarget,
+		    edc_grade AS edcGrade,
+		    edc_psncpa AS edcPsncpa,
+		    edc_title AS edcTitle,
+		    edc_content AS edcContent,
+		    TO_CHAR(recruit_sdate, 'YYYY-MM-DD HH24:MI') AS recruitSdateFormatted,
+		    TO_CHAR(recruit_edate, 'YYYY-MM-DD HH24:MI') AS recruitEdateFormatted,
+		    TO_CHAR(edc_sdate, 'YYYY-MM-DD HH24:MI') AS edcSdateFormatted,
+		    TO_CHAR(edc_edate, 'YYYY-MM-DD HH24:MI') AS edcEdateFormatted,
+		    edc_active AS edcActive
+		FROM education
+		WHERE edc_no = #{edcNo}
+    </select>
+
+  	<!-- 나의 교육 내용 조회 2 -->
+    <select id="getCurriculumMyLectureByEdcNo" parameterType="int" resultType="kr.or.ddit.education.vo.CurriculumVO">
+	    SELECT 
+	          c.cur_no 
+	        , c.cur_name
+	        , c.cur_explain
+	        , c.cur_url
+	        , e.edc_no AS edcNo
+	    FROM curriculum c
+	    JOIN education e ON c.cur_no = e.cur_no
+	    WHERE e.edc_no = #{edcNo}
+	    ORDER BY cur_no ASC 
+	</select>
+
+    <!-- 나의 교육 내용 조회 3 -->
+    <select id="getBooksMyLectureByEdcNo" parameterType="int" resultType="kr.or.ddit.education.vo.BookVO">
+        SELECT 
+            b.book_no AS bookNo,
+            b.book_name AS bookName,
+            b.book_price AS bookPrice,
+            b.book_company AS bookCompany,
+            e.edc_no AS edcNo
+        FROM book b
+        JOIN education e ON b.book_no = e.book_no
+        WHERE e.edc_no = #{edcNo}
+    </select>
+    
+    <!-- 나의 교육 진행중 조회 -->
+    <select id="selectEducationMyListCount" resultType="int" parameterType="kr.or.ddit.education.vo.EmpEdcVO">
+		SELECT COUNT(ee_number)
+		FROM emp_edc
+		WHERE empl_no = #{emplNo}
+	</select>
+	
+	<!-- 나의 교육 진행중 조회 -->
+	<select id="selectEducationMyList" parameterType="string" resultType="kr.or.ddit.education.vo.EducationVO">
+		SELECT * 
+		    FROM (
+		        SELECT 
+		            e.EDC_NO AS edcNo,
+		            e.EDC_SORT AS edcSort,
+		            e.EDUCATOR AS educator,
+		            e.EDC_TARGET AS edcTarget,
+		            e.EDC_GRADE AS edcGrade,
+		            e.EDC_TITLE AS edcTitle,
+		            e.EDC_CONTENT AS edcContent,
+		            e.EDC_SDATE AS edcSdate,
+		            e.EDC_EDATE AS edcEdate,
+		            e.EDC_ACTIVE AS edcActive,
+		            NVL(ee.EE_STATUS, '미신청') AS eeStatus,  
+		            NVL(TO_CHAR(ee.EE_CDATE, 'YYYY-MM-DD HH24:MI:SS'), '-') AS eeCdate,
+		            ROW_NUMBER() OVER (ORDER BY e.EDC_NO DESC) rnum
+		        FROM education e
+		        LEFT JOIN emp_edc ee 
+		            ON e.EDC_NO = ee.EDC_NO  
+		        WHERE ee.EMPL_NO = #{emplNo}
+		    <include refid="edcTitleSearchList"/>
+			<include refid="educatorSearchList"/>
+			<include refid="edcTargetSearchList"/>
+			<include refid="edcSortSearchList"/>
+		        ) a
+		<![CDATA[
+			WHERE a.rnum >= #{page.startRow} AND a.rnum <= #{page.endRow}
+		]]>
+	</select>
+	
+	<!--  ㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏ -->
+	
+	
+	<!-- 나의 교육 전체 조회 -->
+    <select id="selectEducationMyHistoryListCount" resultType="int" parameterType="kr.or.ddit.education.vo.EmpEdcVO">
+		SELECT COUNT(ee_number)
+		FROM emp_edc
+		WHERE empl_no = #{emplNo}
+	</select>
+	
+	<!-- 나의 교육 전체 조회 -->
+	<select id="selectEducationMyHistoryList" parameterType="string" resultType="kr.or.ddit.education.vo.EducationVO">
+		SELECT * 
+		    FROM (
+		        SELECT 
+		            e.EDC_NO AS edcNo,
+		            e.EDC_SORT AS edcSort,
+		            e.EDUCATOR AS educator,
+		            e.EDC_TARGET AS edcTarget,
+		            e.EDC_GRADE AS edcGrade,
+		            e.EDC_TITLE AS edcTitle,
+		            e.EDC_CONTENT AS edcContent,
+		            e.EDC_SDATE AS edcSdate,
+		            e.EDC_EDATE AS edcEdate,
+		            e.EDC_ACTIVE AS edcActive,
+		            NVL(ee.EE_STATUS, '미신청') AS eeStatus,  
+		            NVL(TO_CHAR(ee.EE_CDATE, 'YYYY-MM-DD HH24:MI:SS'), '-') AS eeCdate,
+		            ROW_NUMBER() OVER (ORDER BY e.EDC_NO DESC) rnum
+		        FROM education e
+		        LEFT JOIN emp_edc ee 
+		            ON e.EDC_NO = ee.EDC_NO  
+		        WHERE ee.EMPL_NO = #{emplNo}
+		    <include refid="edcTitleSearchList"/>
+			<include refid="educatorSearchList"/>
+			<include refid="edcTargetSearchList"/>
+			<include refid="edcSortSearchList"/>
+		        ) a
+		<![CDATA[
+			WHERE a.rnum >= #{page.startRow} AND a.rnum <= #{page.endRow}
+		]]>
+	</select>
+	
+	
+	
+	 <select id="selectEduApplicationListCount" resultType="int" parameterType="kr.or.ddit.education.vo.EmpEdcVO">
+		SELECT COUNT(ee_number)
+		FROM emp_edc
+		WHERE empl_no = #{emplNo}
+	</select>
+	
+	<select id="selectEduApplicationList" parameterType="map" resultType="kr.or.ddit.education.vo.EducationVO">
+	    SELECT * 
+	    FROM (
+	        SELECT 
+	            er.EDC_APLC,
+	            em.EMPL_NM,
+	            er.ER_DATE,
+	            e.EDC_NO,
+	            e.EDC_SORT,
+	            e.EDUCATOR,
+	            e.EDC_TARGET,
+	            e.EDC_GRADE,
+	            e.EDC_TITLE,
+	            e.EDC_CONTENT,
+	            e.EDC_SDATE,
+	            e.EDC_EDATE,
+	            ROW_NUMBER() OVER (ORDER BY e.EDC_NO DESC) rnum
+	        FROM education e
+	        JOIN EDC_REQUEST er
+	            ON e.EDC_NO = er.EDC_NO  
+	        JOIN EMPLOYEE em 
+	            ON em.empl_no = er.edc_aplc
+	        WHERE NVL(er.ER_STATUS, 'NOPE') = 'NOPE'
+	        <include refid="edcTitleSearchList"/>
+	        <include refid="edcTargetSearchList"/>
+	        <include refid="edcSortSearchList"/>
+	    ) a
+	    <![CDATA[
+	        WHERE a.rnum >= #{page.startRow} AND a.rnum <= #{page.endRow}
+	    ]]>
+	</select>
+	
+	<select id="selectAllBooks" resultType="kr.or.ddit.education.vo.BookVO">
+	    SELECT DISTINCT BOOK_NAME AS bookName, 
+		    MIN(BOOK_NO) AS bookNo, 
+		    MIN(BOOK_PRICE) AS bookPrice, 
+		    MIN(BOOK_COMPANY) AS bookCompany
+	    FROM BOOK
+	    GROUP BY BOOK_NAME
+	</select>
+	
+	<select id="selectAllSort" resultType="kr.or.ddit.education.vo.EducationVO">
+	    SELECT DISTINCT EDC_SORT,
+	    	MIN(EDC_NO) as edc_no
+	    FROM EDUCATION
+	    GROUP BY EDC_SORT
+	</select>
+	
+	<select id="selectAllTarget" resultType="kr.or.ddit.education.vo.EducationVO">
+	    SELECT DISTINCT EDC_TARGET,
+	    	MIN(EDC_NO) as edc_no
+	    FROM EDUCATION
+	    GROUP BY EDC_TARGET
+	</select>
+	
+	<select id="selectAllGrade" resultType="kr.or.ddit.education.vo.EducationVO">
+	    SELECT DISTINCT EDC_GRADE,
+	    	MIN(EDC_NO) as edc_no
+	    FROM EDUCATION
+	    GROUP BY EDC_GRADE
+	</select>
+	
+	<select id="selectAllCur" resultType="kr.or.ddit.education.vo.CurriculumVO">
+	    SELECT DISTINCT CUR_TITLE AS curTitle, 
+		    MIN(CUR_NO) AS curNo
+	    FROM CURRICULUM
+	    GROUP BY CUR_TITLE
+	</select>
+	
+
+	<insert id="insertEducationWithCurriculum" parameterType="kr.or.ddit.education.vo.EducationVO" useGeneratedKeys="false">
+		<selectKey keyProperty="edcNo" resultType="int" order="BEFORE">
+	        SELECT EDUCATION_SEQ.NEXTVAL FROM DUAL
+	    </selectKey>
+		INSERT INTO EDUCATION (
+			  EDC_NO
+			, EDC_SORT
+			, EDC_WAY
+			, EDUCATOR
+			, EDC_TARGET
+			, EDC_GRADE
+			, EDC_PSNCPA
+			, EDC_TITLE
+			, EDC_CONTENT
+			, RECRUIT_SDATE
+			, RECRUIT_EDATE
+			, EDC_SDATE
+			, EDC_EDATE
+			, EDC_ACTIVE
+			, BOOK_NO
+			, CUR_NO
+		)
+	    VALUES (
+	    	  #{edcNo}
+	    	, #{edcSort}
+	    	, #{edcWay}
+	    	, #{educator}
+	    	, #{edcTarget}
+	    	, #{edcGrade}
+	    	, #{edcPsncpa}
+	    	, #{edcTitle}
+	    	, #{edcContent}
+	    	, #{recruitSdate}
+	    	, #{recruitEdate}
+	    	, #{edcSdate}
+	    	, #{edcEdate}
+	    	, #{edcActive}
+	    	, #{bookNo}
+	    	, #{curNo}
+	    )
+	</insert>
+	
+	<insert id="insertEdcReqeust" parameterType="kr.or.ddit.education.vo.EdcRequestVO">
+		INSERT INTO EDC_REQUEST (
+        	EDC_APLC
+        	, EDC_NO
+        	, ER_DATE
+        	, ER_STATUS
+    	) VALUES (
+        	#{edcAplc}
+        	, #{edcNo}
+        	, TO_DATE(#{erDate}, 'YYYY-MM-DD HH24:MI')
+        	, #{erStatus}
+    	)
+	</insert>
+
+	
+	
+	<update id="updateEdcRequestStatus" parameterType="kr.or.ddit.education.vo.EdcRequestVO">
+	    UPDATE edc_request  
+	    SET er_status = #{erStatus}
+	    WHERE edc_aplc = #{edcAplc}
+	</update>
+	
+	<!-- 특정 신청 정보 조회 -->
+	<select id="getEdcRequestByAplcAndEdcNo" parameterType="map" resultType="kr.or.ddit.education.vo.EdcRequestVO">
+	    SELECT edc_no, edc_aplc
+	    FROM edc_request
+	    WHERE edc_aplc = #{edcAplc}
+	    AND edc_no = #{edcNo}
+	</select>
+
+	
+	<!-- EMP_EDC 테이블에 데이터 추가 -->
+	<insert id="insertEmpEdc" parameterType="kr.or.ddit.education.vo.EmpEdcVO">
+	    INSERT INTO EMP_EDC (
+	        EE_NUMBER,
+	        EDC_NO,
+	        EMPL_NO,
+	        EE_STATUS,
+	        EE_BACKDATE,
+	        EE_CDATE,
+	        EE_PROGRESS
+	    ) VALUES (
+	        EMP_EDC_SEQ.NEXTVAL, 
+	        #{edcNo}, 
+	        #{emplNo}, 
+	        #{eeStatus}, 
+	        NULL, 
+	        SYSDATE, 
+	        #{eeProgress}
+	    )
+	</insert>
+		
+	
+	
+	
+	<update id="deactivateEducation" parameterType="kr.or.ddit.education.vo.EducationVO">
+	    UPDATE education
+	    SET edc_active = 'N'
+	    WHERE edc_no = #{edcNo}
+	</update>
+
+	<select id="selectCurNo" resultType="int">
+		select CUR_SEQ.nextval
+		FROM dual
+	</select>
+
+	<!-- 커리큘럼 생성하기 -->
+	<insert id="insertCurriculum" parameterType="kr.or.ddit.education.vo.CurriculumVO">
+	    INSERT INTO CURRICULUM (
+	        CUR_NO,
+	        CUR_TITLE,
+	        CUR_NAME,
+	        CUR_URL,
+	        CUR_EXPLAIN,
+	        CUR_ORDER
+	    ) VALUES (
+	        #{curNo},
+	        #{curTitle},
+	        #{curName},
+	        #{curUrl},
+	        #{curExplain},
+	        (
+				SELECT NVL(MAX(CUR_ORDER), 0) + 1 
+				FROM CURRICULUM 
+				WHERE CUR_NO = #{curNo}
+			)
+	    )
+	</insert>
+	
+	 <!-- 관리자 - 교육상세정보 수정  -->
+	<update id="updateEducation" parameterType="kr.or.ddit.education.vo.EducationVO">
+        UPDATE EDUCATION
+        SET EDC_TITLE = #{edcTitle},
+            EDC_SORT = #{edcSort},
+            EDC_WAY = #{edcWay},
+            EDUCATOR = #{educator}
+        WHERE EDC_NO = #{edcNo}
+    </update>
+
+	<!-- 관리자 - 교육 내용 수정  -->
+	<update id="updateContent" parameterType="kr.or.ddit.education.vo.EducationVO">
+        UPDATE EDUCATION
+        SET EDC_CONTENT = #{edcContent}
+        WHERE EDC_NO = #{edcNo}
+    </update>
+    
+    <!-- 관리자 - 교육 책 수정  -->
+    <update id="updateBook" parameterType="kr.or.ddit.education.vo.EducationVO">
+        UPDATE EDUCATION
+        SET BOOK_NO = #{bookNo}
+        WHERE EDC_NO = #{edcNo}
+    </update>
+    
+     <!-- 관리자 - 교육 커리큘럼 수정  -->
+	<update id="updateCurriculum" parameterType="kr.or.ddit.education.vo.CurriculumVO">
+	    UPDATE CURRICULUM
+	    SET 
+	        CUR_TITLE = #{curTitle},
+	        CUR_NAME = #{curName},
+	        CUR_URL = #{curUrl},
+	        CUR_EXPLAIN = #{curExplain}
+	    WHERE CUR_NO = #{curNo} AND CUR_ORDER = #{curOrder}
+	</update>
+	    
+	<!-- 유저 - 교육진행도 업데이트 -->
+    <update id="updateEducationProgress">
+        UPDATE emp_edc
+        SET EE_PROGRESS = #{progress}
+        WHERE EDC_NO = #{edcNo} AND EMPL_NO = #{emplNo}
+    </update>
+
+    <!-- 유저 - 교육진행도 업데이트 -->
+    <select id="getEducationProgress" resultType="int">
+        SELECT COALESCE(EE_PROGRESS, 0)
+        FROM emp_edc
+        WHERE EDC_NO = #{edcNo} AND EMPL_NO = #{emplNo}
+    </select>
+
+    <!-- 유저 - 교육진행도 업데이트 -->
+    <select id="getTotalCurriculumCount" resultType="int">
+    	SELECT COUNT(*) 
+	    FROM curriculum c
+	    JOIN education e ON c.cur_no = e.cur_no 
+	    WHERE e.edc_no = #{edcNo}
+	</select>
+    
+
+	<!-- /* 관리자 : 해당 교육 수강자 조회 */ -->
+	<select id="selectEducationListenerCount" resultType="int" parameterType="kr.or.ddit.education.vo.EducationVO">
+		SELECT COUNT(edc_no)
+		FROM education
+		WHERE edc_no = #{edcNo}
+	</select>
+	
+	<!-- /* 관리자 : 해당 교육 수강자 조회 */ -->
+	<select id="selectEducationListenerList" parameterType="map" resultType="kr.or.ddit.education.vo.EducationVO">
+	    SELECT *
+	    FROM (
+	        SELECT 
+	            ed.empl_no,
+	            em.empl_nm,
+	            ed.ee_status,
+	            ed.ee_progress,
+	            e.edc_no,
+	            ROW_NUMBER() OVER (ORDER BY e.edc_no DESC) AS rnum
+	        FROM education e
+	        JOIN emp_edc ed ON e.edc_no = ed.edc_no
+	        JOIN employee em ON em.empl_no = ed.empl_no
+	        WHERE e.edc_no = #{edcNo}
+	    ) a
+	    <![CDATA[
+	    WHERE a.rnum >= #{page.startRow} AND a.rnum <= #{page.endRow}
+	    ]]>
+	</select>
+
+	
+</mapper>

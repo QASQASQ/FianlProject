@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.recruit.mapper.IRecruitMapper">
+
+
+    <!-- 입사 지원자 목록 전체 개수 조회 -->
+    <select id="getRecruitListCount" resultType="int">
+        SELECT COUNT(*)
+        FROM applier
+        WHERE rec_no = #{recNo}
+        <if test="searchWord != null and searchWord != ''">
+            AND app_nm LIKE '%' || #{searchWord} || '%'
+        </if>
+    </select>
+
+    <!-- 입사 지원자 조회 -->
+    <select id="getRecruitList" resultType="kr.or.ddit.recruit.vo.ApplierVO">
+        SELECT 
+            app_no
+            , rec_no
+            , app_nm
+            , app_date
+            , app_telno
+            , app_email
+            , app_at
+            , app_comment  
+            , app_value    
+        FROM (
+            SELECT 
+                app_no
+                , rec_no
+                , app_nm
+                , app_date
+                , app_telno
+                , app_email
+                , app_at
+                , app_comment
+                , app_value
+                , rownum AS rnum
+            FROM (
+                SELECT 
+                    app_no
+                    , rec_no
+                    , app_nm
+                    , app_date
+                    , app_telno
+                    , app_email
+                    , app_at
+                    , app_comment
+                    , app_value
+                FROM applier
+                WHERE rec_no = #{recNo}
+                <if test="searchWord != null and searchWord != ''">
+                    AND (
+                        app_nm LIKE '%' || #{searchWord} || '%'
+                        OR (#{searchWord} = '채용' AND app_at = 'Y')
+                        OR (#{searchWord} = '미채용' AND app_at = 'N')
+                    )
+                </if>
+                ORDER BY app_date DESC
+            ) 
+            WHERE rownum &lt;= #{endRow}
+        )
+        WHERE rnum &gt;= #{startRow}
+    </select>
+
+
+    <!-- 입사 지원자 목록 채용 상태 -->
+    <update id="updateAppAt">
+        UPDATE applier 
+        SET app_at = 'Y' 
+        WHERE rec_no = #{recNo} 
+        AND app_nm = #{appNm}
+    </update>
+
+    <!-- ✅ 채용 공고 목록 개수 조회 -->
+    <select id="getJobPostListCount" resultType="int">
+        SELECT COUNT(*)
+        FROM (
+            SELECT 
+            rec_no
+            , CASE dept_code 
+                WHEN '01' THEN '경영 및 인사'
+                WHEN '02' THEN '마케팅'
+                WHEN '03' THEN '연구 및 개발'
+                WHEN '04' THEN '운영'
+                WHEN '05' THEN '재무 및 회계'
+                ELSE '기타'
+            END AS deptName
+            , rec_title
+            , CASE rec_position 
+                WHEN '01' THEN '사원'
+                WHEN '02' THEN '대리'
+                WHEN '03' THEN '과장'
+                WHEN '04' THEN '차장'
+                WHEN '05' THEN '부장'
+                ELSE '기타'
+            END AS positionName
+            FROM recruitment
+            WHERE 1=1
+            <if test="searchWord != null and searchWord != ''">
+            AND (
+                CASE dept_code 
+                WHEN '01' THEN '경영 및 인사'
+                WHEN '02' THEN '마케팅'
+                WHEN '03' THEN '연구 및 개발'
+                WHEN '04' THEN '운영'
+                WHEN '05' THEN '재무 및 회계'
+                ELSE '기타'
+                END LIKE '%' || #{searchWord} || '%'
+                OR rec_title LIKE '%' || #{searchWord} || '%'
+                OR CASE rec_position 
+                WHEN '01' THEN '사원'
+                WHEN '02' THEN '대리'
+                WHEN '03' THEN '과장'
+                WHEN '04' THEN '차장'
+                WHEN '05' THEN '부장'
+                ELSE '기타'
+                END LIKE '%' || #{searchWord} || '%'
+            )
+            </if>
+        )
+    </select>
+
+    <!-- 진행중 또는 종료/완료 채용 공고 조회 (관리자용) -->
+    <select id="getJobPostList" resultType="kr.or.ddit.recruit.vo.RecruitVO">
+        SELECT *
+        FROM (
+            SELECT a.*, rownum rnum
+            FROM (
+                SELECT 
+                        rec_no,
+                        dept_code,
+                        CASE dept_code 
+                        WHEN '01' THEN '경영 및 인사'
+                        WHEN '02' THEN '마케팅'
+                        WHEN '03' THEN '연구 및 개발'
+                        WHEN '04' THEN '운영'
+                        WHEN '05' THEN '재무 및 회계'
+                        ELSE '기타'
+                        END AS deptName,
+                        rec_title,
+                        rec_position,
+                        CASE rec_position 
+                        WHEN '01' THEN '사원'
+                        WHEN '02' THEN '대리'
+                        WHEN '03' THEN '과장'
+                        WHEN '04' THEN '차장'
+                        WHEN '05' THEN '부장'
+                        ELSE '기타'
+                        END AS positionName,
+                        rec_content,
+                        rec_req,
+                        rec_ideal,
+                        rec_sdate,
+                        rec_edate,
+                        rec_exp,
+                        rec_target,
+                        rec_treatment,
+                        rec_essential,
+                        CASE rec_usage 
+                        WHEN 'Y' THEN '진행중'
+                        WHEN 'N' THEN '완료'
+                        ELSE '알 수 없음'
+                        END AS usageStatus,
+                        rec_usage AS recUsage
+                FROM recruitment
+                WHERE 1=1
+                    <if test="status != null and status != ''">
+                        AND rec_usage = #{status}
+                    </if>
+                    <if test="searchWord != null and searchWord != ''">
+                        AND (
+                            CASE dept_code 
+                            WHEN '01' THEN '경영 및 인사'
+                            WHEN '02' THEN '마케팅'
+                            WHEN '03' THEN '연구 및 개발'
+                            WHEN '04' THEN '운영'
+                            WHEN '05' THEN '재무 및 회계'
+                            ELSE '기타'
+                            END LIKE '%' || #{searchWord} || '%'
+                            OR rec_title LIKE '%' || #{searchWord} || '%'
+                            OR CASE rec_position 
+                                WHEN '01' THEN '사원'
+                                WHEN '02' THEN '대리'
+                                WHEN '03' THEN '과장'
+                                WHEN '04' THEN '차장'
+                                WHEN '05' THEN '부장'
+                                ELSE '기타'
+                            END LIKE '%' || #{searchWord} || '%'
+                        )
+                    </if>
+                ORDER BY rec_sdate DESC
+            ) a
+            WHERE rownum &lt;= #{endRow}
+        )
+        WHERE rnum &gt;= #{startRow}
+    </select>
+
+     <!-- 채용공고 등록 -->
+    <insert id="insertRecruit" parameterType="kr.or.ddit.recruit.vo.RecruitVO">
+        <selectKey keyProperty="recNo" resultType="string" order="BEFORE">
+            SELECT 'REC' || TO_CHAR(recruitment_seq.NEXTVAL, 'FM00000') FROM DUAL
+        </selectKey>
+
+        INSERT INTO recruitment (
+            rec_no
+            , dept_code
+            , rec_title
+            , rec_position
+            , rec_content
+            , rec_req
+            , rec_ideal
+            , rec_sdate
+            , rec_edate
+            , rec_exp
+            , rec_target
+            , rec_treatment
+            , rec_essential
+            , rec_usage
+        ) VALUES (
+            #{recNo}
+            , #{deptCode}
+            , #{recTitle}
+            , #{recPosition}
+            , #{recContent}
+            , #{recReq}
+            , #{recIdeal}
+            , #{recSdate}
+            , #{recEdate}
+            , #{recExp}
+            , #{recTarget}
+            , #{recTreatment}
+            , #{recEssential}
+            , 'Y'
+        )
+    </insert>
+
+    <!-- 기술항목 등록 -->
+    <insert id="insertRecSort" parameterType="kr.or.ddit.recruit.vo.RecSortVO">
+        INSERT INTO rec_sort (
+              sort_no
+            , rec_no
+            , sort_content
+        ) VALUES (
+              'S' || TO_CHAR(recruitment_seq.NEXTVAL, 'FM00000')
+            , #{recNo}
+            , #{sortContent}
+        )
+    </insert>
+
+    <!-- 채용공고 단건 조회 -->
+    <select id="selectRecruit" parameterType="String" resultType="kr.or.ddit.recruit.vo.RecruitVO">
+        SELECT 
+               rec_no
+            , dept_code
+            , rec_title
+            , rec_position
+            , rec_content
+            , rec_req
+            , rec_ideal
+            , rec_sdate
+            , rec_edate
+            , rec_exp
+            , rec_target
+            , rec_treatment
+            , rec_essential
+            , rec_usage
+        FROM recruitment
+        WHERE rec_no = #{recNo}
+    </select>
+
+    <!-- 채용인원 카운트 -->
+    <select id="getConfirmedApplicantCount" resultType="int" parameterType="string">
+        SELECT COUNT(*)
+        FROM applier
+        WHERE rec_no = #{recNo} AND app_at = 'Y'
+    </select>
+
+    <!-- 채용 공고 완료-->
+    <update id="updateRecruitUsageToN" parameterType="string">
+        UPDATE recruitment
+        SET rec_usage = 'N'
+        WHERE rec_no = #{recNo}
+    </update>
+
+    <!-- 기술항목 목록 조회 -->
+    <select id="selectRecSortList" parameterType="String" resultType="kr.or.ddit.recruit.vo.RecSortVO">
+        SELECT
+              sort_no
+            , rec_no 
+            , sort_content 
+        FROM rec_sort
+        WHERE rec_no = #{recNo}
+    </select>
+
+    <!-- 입사 지원서 가져오기 -->
+    <select id="getApplier" parameterType="String" resultType="kr.or.ddit.recruit.vo.ApplierVO">
+        SELECT
+              app_document
+            , app_comment
+            , app_value
+        FROM applier
+        WHERE app_no = #{app_no}
+    </select>
+
+
+    <!-- 입사자 평가 -->
+    <update id="updateApplierEvaluation" parameterType="map">
+        UPDATE APPLIER
+        SET APP_COMMENT = #{appComment},
+            APP_VALUE = #{appValue}
+        WHERE APP_NO = #{appNo}
+    </update>
+
+</mapper>

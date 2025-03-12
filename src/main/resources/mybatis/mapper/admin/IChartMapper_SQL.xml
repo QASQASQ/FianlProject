@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.admin.mapper.IChartMapper">
+	<!-- 지난1년간 전체사원의 지각횟수 -->
+	<sql id="getBeforeHeader">
+	    NVL((SELECT COUNT(*) FROM DILIGENCE_AND_LAZINESS 
+	         WHERE TO_CHAR(DCLZ_DATE, 'YYYYMM') = TO_CHAR(ADD_MONTHS(SYSDATE, 
+	</sql>
+	<sql id="getBeforeFooter">
+		), 'YYYYMM')
+		AND DCLZ_STATUS = '02'), 0) AS 
+	</sql>
+	<select id="getLateData" parameterType="java.util.Map">
+		SELECT 
+		    <include refid="getBeforeHeader"/> -11 <include refid="getBeforeFooter"/> late11,
+		    <include refid="getBeforeHeader"/> -10 <include refid="getBeforeFooter"/> late10,
+		    <include refid="getBeforeHeader"/> -9 <include refid="getBeforeFooter"/> late9,
+		    <include refid="getBeforeHeader"/> -8 <include refid="getBeforeFooter"/> late8,
+		    <include refid="getBeforeHeader"/> -7 <include refid="getBeforeFooter"/> late7,
+		    <include refid="getBeforeHeader"/> -6 <include refid="getBeforeFooter"/> late6,
+		    <include refid="getBeforeHeader"/> -5 <include refid="getBeforeFooter"/> late5,
+		    <include refid="getBeforeHeader"/> -4 <include refid="getBeforeFooter"/> late4,
+		    <include refid="getBeforeHeader"/> -3 <include refid="getBeforeFooter"/> late3,
+		    <include refid="getBeforeHeader"/> -2 <include refid="getBeforeFooter"/> late2,
+		    <include refid="getBeforeHeader"/> -1 <include refid="getBeforeFooter"/> late1,
+		    <include refid="getBeforeHeader"/> 0 <include refid="getBeforeFooter"/> late0
+		FROM DUAL
+	</select>
+	
+	<sql id="getEmplCountHeader">
+		SELECT COUNT(empl_no)
+		FROM EMPLOYEE
+		WHERE dept_code = 
+	</sql>
+	<select id="getEmplCountData" resultType="java.util.Map">
+		select
+			 (<include refid="getEmplCountHeader"/> '01') as "01"
+			,(<include refid="getEmplCountHeader"/> '02') as "02"
+			,(<include refid="getEmplCountHeader"/> '03') as "03"
+			,(<include refid="getEmplCountHeader"/> '04') as "04"
+			,(<include refid="getEmplCountHeader"/> '05') as "05"
+		from dual
+	</select>
+	
+	<sql id="getDeptSalaryHeader">
+		SELECT NVL(TRUNC(AVG(basic_salary) / 10000), 0)
+		FROM employee
+		WHERE dept_code = 
+	</sql>
+	<select id="getDeptSalary">
+		SELECT 
+			(<include refid="getDeptSalaryHeader"/>'01') AS personell
+			,(<include refid="getDeptSalaryHeader"/>'02') AS marketing
+			,(<include refid="getDeptSalaryHeader"/>'03') AS develope
+			,(<include refid="getDeptSalaryHeader"/>'04') AS operation
+			,(<include refid="getDeptSalaryHeader"/>'05') AS account
+		FROM DUAL
+	</select>
+	
+	<sql id="getRecruitCountHeader">
+		select count(rec_no)
+		from recruitment
+		where dept_code = 
+	</sql>
+	<select id="getRecruitCount">
+		select 
+			(<include refid="getRecruitCountHeader"/>'01') AS personell
+			,(<include refid="getRecruitCountHeader"/>'02') AS marketing
+			,(<include refid="getRecruitCountHeader"/>'03') AS develope
+			,(<include refid="getRecruitCountHeader"/>'04') AS operation
+			,(<include refid="getRecruitCountHeader"/>'05') AS account
+		from dual
+		</select>
+		
+		<sql id="getAppCountHeader">
+			select NVL(count(app_no), 0)
+		    from applier
+		    where rec_no in (
+		        select rec_no
+		        from recruitment
+		        where dept_code = 
+		</sql>
+		<select id="getAppCount">
+		select
+		(<include refid="getAppCountHeader"/>'01')) as personell
+		,(<include refid="getAppCountHeader"/>'02')) as marketing
+		,(<include refid="getAppCountHeader"/>'03')) as develope
+		,(<include refid="getAppCountHeader"/>'04')) as operation
+		,(<include refid="getAppCountHeader"/>'05')) as account
+		from dual	
+	</select>
+	
+	
+	<select id="getVacationData">
+		SELECT 
+		    SUM(CASE WHEN e.dept_code = '01' THEN yv.YRYC_USAGE END) AS "01U",
+		    SUM(CASE WHEN e.dept_code = '01' THEN yv.YRYC_REMNDR END) AS "01R",
+		    ROUND((SUM(CASE WHEN e.dept_code = '01' THEN yv.YRYC_REMNDR END) / SUM(CASE WHEN e.dept_code = '01' THEN yv.YRYC_TOTAL END)) * 100, 2) AS "01P",
+		
+		    SUM(CASE WHEN e.dept_code = '02' THEN yv.YRYC_USAGE END) AS "02U",
+		    SUM(CASE WHEN e.dept_code = '02' THEN yv.YRYC_REMNDR END) AS "02R",
+		    ROUND((SUM(CASE WHEN e.dept_code = '02' THEN yv.YRYC_REMNDR END) / SUM(CASE WHEN e.dept_code = '02' THEN yv.YRYC_TOTAL END)) * 100, 2) AS "02P",
+		
+		    SUM(CASE WHEN e.dept_code = '03' THEN yv.YRYC_USAGE END) AS "03U",
+		    SUM(CASE WHEN e.dept_code = '03' THEN yv.YRYC_REMNDR END) AS "03R",
+		    ROUND((SUM(CASE WHEN e.dept_code = '03' THEN yv.YRYC_REMNDR END) / SUM(CASE WHEN e.dept_code = '03' THEN yv.YRYC_TOTAL END)) * 100, 2) AS "03P",
+		
+		    SUM(CASE WHEN e.dept_code = '04' THEN yv.YRYC_USAGE END) AS "04U",
+		    SUM(CASE WHEN e.dept_code = '04' THEN yv.YRYC_REMNDR END) AS "04R",
+		    ROUND((SUM(CASE WHEN e.dept_code = '04' THEN yv.YRYC_REMNDR END) / SUM(CASE WHEN e.dept_code = '04' THEN yv.YRYC_TOTAL END)) * 100, 2) AS "04P",
+		
+		    SUM(CASE WHEN e.dept_code = '05' THEN yv.YRYC_USAGE END) AS "05U",
+		    SUM(CASE WHEN e.dept_code = '05' THEN yv.YRYC_REMNDR END) AS "05R",
+		    ROUND((SUM(CASE WHEN e.dept_code = '05' THEN yv.YRYC_REMNDR END) / SUM(CASE WHEN e.dept_code = '05' THEN yv.YRYC_TOTAL END)) * 100, 2) AS "05P"
+	
+		FROM yearly_vacation yv
+		JOIN employee e ON yv.empl_no = e.empl_no
+		WHERE e.dept_code IN ('01', '02', '03', '04', '05')
+	</select>
+	
+	<select id="getYearsOfService">
+		SELECT 
+		    NVL((SELECT ROUND(AVG(MONTHS_BETWEEN(sysdate, hire_date)/12),2)
+		    FROM employee
+		    WHERE dept_code = '01'),0) AS "01",
+		    
+		    NVL((SELECT ROUND(AVG(MONTHS_BETWEEN(sysdate, hire_date)/12),2)
+		    FROM employee
+		    WHERE dept_code = '02'),0) AS "02",
+		    
+		    NVL((SELECT ROUND(AVG(MONTHS_BETWEEN(sysdate, hire_date)/12),2)
+		    FROM employee
+		    WHERE dept_code = '03'),0) AS "03",
+		    
+		    nvl((SELECT ROUND(AVG(MONTHS_BETWEEN(sysdate, hire_date)/12),2)
+		    FROM employee
+		    WHERE dept_code = '04'),0) AS "04",
+		    
+		    NVL((SELECT ROUND(AVG(MONTHS_BETWEEN(sysdate, hire_date)/12),2)
+		    FROM employee
+		    WHERE dept_code = '05'),0) AS "05"
+		FROM dual
+	</select>
+	
+	<select id="getVaction">
+	SELECT 
+	    (SELECT ROUND(SUM(yryc_total) / SUM(yryc_total) * 100, 2) FROM yearly_vacation) AS total,
+	    (SELECT ROUND(SUM(yryc_usage) / SUM(yryc_total) * 100, 2) FROM yearly_vacation) AS usage,
+	    (SELECT ROUND(SUM(yryc_remndr) / SUM(yryc_total) * 100, 2) FROM yearly_vacation) AS remain
+	FROM dual
+	</select>
+</mapper>

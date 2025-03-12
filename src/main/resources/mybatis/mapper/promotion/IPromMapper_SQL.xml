@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.promotion.mapper.IPromMapper">
+
+	<select id="getTotalRecord" resultType="int">
+		SELECT
+			count(empl_no)
+		FROM employee
+		WHERE 1=1
+		<if test="emplNo != null and emplNo != ''">
+			AND empl_no LIKE '%' || #{emplNo} || '%'
+		</if>
+		<if test="emplNm != null and emplNm != ''">
+			AND empl_nm LIKE '%' || #{emplNm} || '%'
+		</if>
+		<if test="emplPosition != null and emplPosition != ''">
+			AND empl_position = #{emplPosition}
+		</if>
+		<if test="deptCode != null and deptCode != ''">
+			AND dept_code = #{deptCode}
+		</if>
+	</select>
+	
+	<select id="getEvaluList" resultType="kr.or.ddit.promotion.vo.EvaluationVO">
+		select
+			*
+		from (
+		    select 
+		    	a.*
+		        , ROW_NUMBER() OVER (
+		        	<choose>
+		        		<when test="sorting == 2">
+							ORDER BY a.years_of_service DESC
+		        		</when>
+		        		<when test="sorting == 3">
+							ORDER BY a.years_of_service ASC
+		        		</when>
+		        		<when test="sorting == 5">
+							ORDER BY a.score DESC
+		        		</when>
+		        		<when test="sorting == 6">
+							ORDER BY a.score ASC
+		        		</when>
+		        		<otherwise>
+				        	ORDER BY a.empl_no DESC
+		        		</otherwise>
+		        	</choose>
+		        ) rnum
+	    FROM (
+			SELECT
+			    e.empl_no,
+			    e.empl_nm,
+			    c.cc_name AS empl_position,
+			    d.dept_name AS dept_code,
+			    TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')) - TO_NUMBER(TO_CHAR(e.hire_date, 'YYYY')) AS years_of_service,
+			    NVL((
+			        SELECT 
+			        	TRUNC(AVG(eval_score))
+			        FROM evaluation
+			        WHERE empl_obj = e.empl_no
+			    ), 0) AS score,
+			    (
+			        SELECT 
+			        	<![CDATA[NVL(LISTAGG(edc_title, '<br> ') WITHIN GROUP (ORDER BY edc_title), '수강이력 없음')]]>
+			        FROM (
+			            SELECT ed.edc_title
+			            FROM emp_edc edc
+	                    LEFT JOIN education ed ON edc.edc_no = ed.edc_no
+			            WHERE TO_CHAR(edc.empl_no) = e.empl_no
+			            ORDER BY edc.edc_no
+			            FETCH FIRST 2 ROWS ONLY
+			        )
+			    ) AS education
+			FROM employee e
+			LEFT JOIN common_code c ON e.EMPL_POSITION = c.cc_code AND c.cg_group = 'POSITION'
+			LEFT JOIN department d ON e.dept_code = d.dept_code
+			LEFT JOIN team t ON e.team_code = t.team_code
+	        WHERE 1=1
+			<if test="emplNo != null and emplNo != ''">
+				AND e.empl_no LIKE '%' || #{emplNo} || '%'
+			</if>
+			<if test="emplNm != null and emplNm != ''">
+				AND empl_nm LIKE '%' || #{emplNm} || '%'
+			</if>
+			<if test="position != null and position != ''">
+				AND e.empl_position = #{position}
+			</if>
+			<if test="deptCode != null and deptCode != ''">
+				AND e.dept_code = #{deptCode}
+			</if>
+	    <include refid="CmmSQL.pagingFooterWithVO"/>
+	</select>
+	
+	<update id="promoteTarget" parameterType="String">
+		UPDATE employee
+		SET promotion_status = 'Y'
+		WHERE empl_no = #{emplNo}
+	</update>
+	
+	<select id="getPromList" resultType="kr.or.ddit.promotion.vo.EvaluationVO">
+		SELECT
+		    e.empl_no,
+		    e.empl_nm,
+		    c.cc_name AS empl_position,
+		    d.dept_name AS dept_code,
+		    TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')) - TO_NUMBER(TO_CHAR(e.hire_date, 'YYYY')) AS years_of_service,
+		    NVL((
+		        SELECT 
+		        	TRUNC(AVG(eval_score))
+		        FROM evaluation
+		        WHERE empl_obj = e.empl_no
+		    ), 0) AS score,
+		    (
+		        SELECT 
+		        	<![CDATA[NVL(LISTAGG(edc_title, '<br> ') WITHIN GROUP (ORDER BY edc_title), '수강이력 없음')]]>
+		        FROM (
+		            SELECT ed.edc_title
+		            FROM emp_edc edc
+                    LEFT JOIN education ed ON edc.edc_no = ed.edc_no
+		            WHERE edc.empl_no = e.empl_no
+		            ORDER BY edc.edc_no
+		            FETCH FIRST 2 ROWS ONLY
+		        )
+		    ) AS education
+		FROM employee e
+		LEFT JOIN common_code c ON e.EMPL_POSITION = c.cc_code AND c.cg_group = 'POSITION'
+		LEFT JOIN department d ON e.dept_code = d.dept_code
+		LEFT JOIN team t ON e.team_code = t.team_code
+        WHERE PROMOTION_STATUS = 'Y'
+	</select>
+	
+	<update id="promEmpl" parameterType="String">
+    UPDATE employee
+    SET 
+        empl_position = LPAD(TO_CHAR(TO_NUMBER(empl_position) + 1), 2, '0'),
+        promotion_status = 'N'
+    WHERE empl_no = #{emplNo}
+</update>
+
+<update id="promCancel" parameterType="String">
+	UPDATE employee
+	SET  promotion_status = 'N'
+	WHERE empl_no = #{emplNo}
+</update>
+
+<select id="getDept" resultType="kr.or.ddit.employee.vo.DepartmentVO">
+	SELECT 
+		dept_code
+		, dept_name
+	 FROM department
+</select>
+
+<select id="getPosition" resultType="kr.or.ddit.cmm.vo.CommonCodeVO">
+	SELECT 
+		cc_name
+		, cc_code 
+	FROM common_code 
+	WHERE cg_group = 'POSITION'
+</select>
+</mapper>

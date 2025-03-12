@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.message.mapper.IChatMapper">
+
+  <!-- 1. 채팅방 생성 (호스트 등록 포함) -->
+  <insert id="createChatRoom" parameterType="kr.or.ddit.message.vo.ChatRoomVO" useGeneratedKeys="true">
+    <selectKey keyProperty="crNo" resultType="long" order="BEFORE">
+      SELECT chat_room_seq.nextval FROM dual
+    </selectKey>
+    INSERT INTO chat_room (
+          cr_no
+        , empl_no
+        , cr_title
+        , cr_date
+    ) VALUES (
+          #{crNo}
+        , #{emplNo}
+        , #{crTitle}
+        , SYSDATE
+    )
+  </insert>
+
+  <!-- 2. 메시지 전송 -->
+  <insert id="sendMessage" parameterType="kr.or.ddit.message.vo.ChatMessageVO">
+    <selectKey keyProperty="cmNo" resultType="long" order="BEFORE">
+      SELECT chat_msg_seq.nextval FROM dual
+    </selectKey>
+    INSERT INTO chat_msg (
+          cm_no
+        , cr_no
+        , empl_no
+        , cm_content
+        , cm_date
+        , cm_type
+        , file_identify
+    ) VALUES (
+          #{cmNo}
+        , #{crNo}
+        , #{emplNo}
+        , #{cmContent}
+        , SYSDATE
+        , #{cmType}
+        , #{fileIdentify}
+    )
+  </insert>
+
+  <!-- 3. 참여자의 마지막 읽은 메시지 번호 업데이트 -->
+  <update id="updateLastReadMessage">
+    UPDATE cr_participant 
+    SET last_read_cm_no = #{cmNo}
+    WHERE cr_no = #{crNo}
+      AND empl_no = #{emplNo}
+  </update>
+
+  <!-- 4. 특정 참여자의 마지막 읽은 메시지 번호 조회 -->
+  <select id="selectLastReadMessage" resultType="long">
+    SELECT COALESCE(last_read_cm_no, 0)
+    FROM cr_participant
+    WHERE cr_no = #{crNo}
+      AND empl_no = #{emplNo}
+  </select>
+
+  <!-- 5. 읽지 않은 메시지 개수 조회 -->
+  <select id="countUnreadMessages" parameterType="map" resultType="int">
+      SELECT COUNT(*)
+      FROM chat_msg cm
+      JOIN cr_participant cp ON cm.cr_no = cp.cr_no
+      WHERE cm.cr_no = #{crNo}
+        AND cp.empl_no = #{emplNo}
+        AND cm.cm_no &gt; COALESCE(cp.last_read_cm_no, 0)
+        AND cm.empl_no != #{emplNo}  
+        AND cp.cm_exit = 'N'
+  </select>
+
+  <!-- 6. 최신 메시지 번호 조회 -->
+  <select id="getLastMessageNo" parameterType="long" resultType="long">
+      SELECT MAX(cm_no) 
+      FROM chat_msg 
+      WHERE cr_no = #{crNo} 
+      AND cm_type != 'SYSTEM'
+  </select>
+
+  <!-- 7. 읽지 않은 사용자 수 조회 -->
+  <select id="getUnreadUserCount" parameterType="map" resultType="int">
+    SELECT COUNT(DISTINCT cp.empl_no)
+    FROM cr_participant cp
+    LEFT JOIN chat_msg cm ON cp.cr_no = cm.cr_no 
+      AND cm.cm_no = (
+        SELECT MAX(cm_no) 
+        FROM chat_msg 
+        WHERE cr_no = #{crNo} 
+        AND cm_type != 'SYSTEM'
+      )
+    WHERE cp.cr_no = #{crNo}
+      AND cp.empl_no != #{emplNo}
+      AND cm.cm_type != 'SYSTEM'
+      AND (cp.last_read_cm_no IS NULL OR cp.last_read_cm_no &lt; cm.cm_no)
+      AND cp.cm_exit = 'N'
+  </select>
+
+  <!-- 8. 채팅방 목록 조회 -->
+  <select id="getChatRooms" resultType="kr.or.ddit.message.vo.ChatRoomVO">
+      SELECT 
+            cr.cr_no
+          , cr.cr_title
+          , (
+              SELECT MAX(cm_date) 
+              FROM chat_msg 
+              WHERE cr_no = cr.cr_no 
+              AND cm_type = 'TEXT'
+            ) AS lastMessageDate
+          , (
+              SELECT cm_content
+              FROM chat_msg 
+              WHERE cr_no = cr.cr_no 
+              AND cm_type = 'TEXT' 
+              ORDER BY cm_date DESC 
+              FETCH FIRST 1 ROW ONLY
+            ) AS lastMessageContent
+      FROM chat_room cr
+      WHERE cr.cr_no IN (
+        SELECT cr_no 
+        FROM cr_participant 
+        WHERE empl_no = #{emplNo}
+        AND cm_exit = 'N'  
+      )
+      ORDER BY lastMessageDate DESC
+  </select>
+
+  <!-- 9. 특정 채팅방 정보 조회 -->
+  <select id="getChatRoomById" parameterType="long" resultType="kr.or.ddit.message.vo.ChatRoomVO">
+    SELECT 
+          cr_no
+        , empl_no
+        , cr_title
+        , cr_date
+    FROM chat_room
+    WHERE cr_no = #{crNo}
+  </select>
+
+  <!-- 10. 채팅방 참여자 추가 -->
+  <insert id="insertParticipant" parameterType="kr.or.ddit.message.vo.ChatRoomParticipantVO">
+    INSERT INTO cr_participant (
+          cr_no
+        , empl_no
+        , empl_nm
+        , last_read_cm_no
+        , cm_auth
+        , cr_date
+        , cm_exit
+    ) VALUES (
+          #{crNo}
+        , #{emplNo}
+        , NVL((
+            SELECT empl_nm 
+            FROM employee 
+            WHERE empl_no = #{emplNo}
+          )
+        , 'UNKNOWN')
+        , #{cmNo}
+        , (
+            SELECT CASE WHEN COUNT(*) = 0 
+            THEN 'HOST' 
+            ELSE 'GUEST' 
+            END FROM cr_participant 
+            WHERE cr_no = #{crNo}
+          )
+        , SYSDATE
+        , #{cmExit}
+    )
+  </insert>
+
+  <!-- 11. 특정 채팅방의 참여자 목록 조회 -->
+  <select id="selectParticipants" parameterType="long" resultType="kr.or.ddit.message.vo.ChatRoomParticipantVO">
+    SELECT 
+          cr_no
+        , empl_no
+        , empl_nm
+        , last_read_cm_no
+        , cm_auth
+        , cr_date
+        , cm_exit
+    FROM cr_participant
+    WHERE cr_no = #{crNo}
+  </select>
+
+  <!-- 12. 특정 참여자 정보 조회 -->
+  <select id="selectParticipant" resultType="kr.or.ddit.message.vo.ChatRoomParticipantVO">
+    SELECT 
+          cp.cr_no
+        , cp.empl_no
+        , e.empl_nm
+        , cp.last_read_cm_no
+        , cp.cm_auth
+        , cp.cr_date
+        , cp.cm_exit
+    FROM cr_participant cp
+    JOIN employee e ON cp.empl_no = e.empl_no
+    WHERE cp.cr_no = #{crNo}
+      AND cp.empl_no = #{emplNo}
+      AND cp.cm_exit = 'N'
+  </select>
+
+  <!-- 13. 사원 번호로 사원 이름 조회 -->
+  <select id="getEmployeeNameById" parameterType="string" resultType="map">
+    SELECT 
+          empl_no
+        , empl_nm
+    FROM employee
+    WHERE empl_no = #{emplNo}
+  </select>
+
+  <!-- 14. 특정 채팅방의 마지막 메시지 시간 조회 -->
+  <select id="findLastMessageTime" resultType="java.time.LocalDateTime">
+    SELECT MAX(cm_date)
+    FROM chat_msg
+    WHERE cr_no = #{crNo}
+  </select>
+
+  <!-- 15. 채팅 메시지 페이징 조회 -->
+  <select id="getMessagesPaged" parameterType="map" resultType="kr.or.ddit.message.vo.ChatMessageVO">
+      SELECT 
+            cm.cm_no
+          , cm.cr_no
+          , cm.empl_no
+          , e.empl_nm
+          , cm.cm_content
+          , cm.cm_date
+          , cm.cm_type
+          , df.file_path AS fileUrl
+      FROM chat_msg cm
+      LEFT JOIN employee e ON cm.empl_no = e.empl_no
+      LEFT JOIN (
+        SELECT 
+          file_identify,
+          MAX(file_no) AS max_file_no,
+          MAX(file_path) AS file_path
+        FROM doc_file
+        GROUP BY file_identify
+      ) df ON df.file_identify = cm.file_identify
+      WHERE cm.cr_no = #{crNo}
+      ORDER BY cm.cm_date DESC
+      OFFSET #{page} * #{size} ROWS FETCH NEXT #{size} ROWS ONLY
+  </select>
+  
+  <!-- 16. 모든 채팅방의 최신 메시지 시간 및 읽지 않은 메시지 개수 조회 -->
+  <select id="findLastMessageTimeForAllRooms" parameterType="string" resultType="map">
+    SELECT 
+          c.cr_no
+        , c.cr_title
+        , NVL(cm.lastMessageDate, CURRENT_TIMESTAMP) AS lastMessageDate
+        , NVL(cm.lastMessageContent, '대화 없음') AS lastMessageContent
+        , NVL(uc.unreadCount, 0) AS unreadCount
+    FROM chat_room c
+    LEFT JOIN (
+        SELECT 
+            cr_no
+          , MAX(cm_date) AS lastMessageDate
+          , MAX(cm_content) KEEP (DENSE_RANK FIRST ORDER BY cm_date DESC) AS lastMessageContent
+        FROM chat_msg
+        GROUP BY cr_no
+    ) cm ON c.cr_no = cm.cr_no
+    LEFT JOIN (
+        SELECT cr_no, COUNT(*) AS unreadCount
+        FROM chat_msg
+        WHERE cm_no &gt; NVL((
+                SELECT MAX(last_read_cm_no)
+                FROM cr_participant
+                WHERE empl_no = #{emplNo} 
+                  AND cm_exit = 'N'
+            ), 0)
+        GROUP BY cr_no
+    ) uc ON c.cr_no = uc.cr_no
+    WHERE c.cr_no IN (
+        SELECT cr_no 
+        FROM cr_participant 
+        WHERE empl_no = #{emplNo} 
+          AND cm_exit = 'N'
+    )
+    ORDER BY lastMessageDate DESC
+  </select>
+
+
+  <!-- 17. 특정 메시지 기준 읽지 않은 사용자 여부 조회 -->
+  <select id="isUserUnread" parameterType="map" resultType="int">
+    SELECT COUNT(*)
+    FROM cr_participant
+    WHERE cr_no = #{crNo}
+      AND (last_read_cm_no &lt; #{cmNo} OR last_read_cm_no IS NULL)
+      AND empl_no != #{emplNo}
+  </select>
+
+  <!-- 18. 채팅방 나가기 처리 -->
+  <update id="updateExitStatus" parameterType="map">
+      UPDATE cr_participant
+      SET cm_exit = 'Y'
+      WHERE cr_no = #{crNo}
+        AND empl_no = #{emplNo}
+      RETURNING cr_no INTO #{crNo}
+  </update>
+
+
+  <!-- 19. 현재 방장 여부 확인 -->
+  <select id="isHost" resultType="boolean">
+    SELECT CASE WHEN COUNT(*) &gt; 0 THEN 1 ELSE 0 END
+    FROM cr_participant
+    WHERE cr_no = #{crNo}
+      AND empl_no = #{emplNo}
+      AND cm_auth = 'HOST'
+  </select>
+
+
+  <!-- 20. 새로운 방장 찾기 -->
+  <select id="findNextHost" resultType="kr.or.ddit.message.vo.ChatRoomParticipantVO">
+    SELECT * FROM (
+      SELECT * FROM cr_participant
+      WHERE cr_no = #{crNo}
+        AND cm_exit = 'N'
+      ORDER BY cr_date ASC
+    )
+    WHERE ROWNUM = 1
+  </select>
+
+  <!-- 21. 새로운 방장 업데이트 -->
+  <update id="updateHost">
+    UPDATE cr_participant
+    SET cm_auth = 'HOST'
+    WHERE cr_no = #{crNo}
+      AND empl_no = #{emplNo}
+  </update>
+
+  <!-- 22. 메시지 발신자 조회 -->
+  <select id="getSenderIdByMessageId" parameterType="long" resultType="String">
+    SELECT empl_no
+    FROM chat_msg
+    WHERE cm_no = #{cmNo}
+  </select>
+
+  <update id="leaveChatRoomProcedure" parameterType="map">
+      BEGIN
+          sp_leave_chatroom(#{crNo}, #{emplNo});
+      END;
+  </update>
+
+  <select id="selectAllParticipants" parameterType="Long" resultType="String">
+     SELECT empl_no
+      FROM cr_participant
+      WHERE cr_no = #{crNo}
+  </select>
+
+</mapper>

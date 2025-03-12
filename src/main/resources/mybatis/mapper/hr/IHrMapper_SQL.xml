@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.hr.mapper.IHrMapper">
+<!-- domain명(kr.or.hrms)를 붙여주는 이유는 전세계에서 하나밖에 없기 때문. 충돌 방지 -->
+<!-- sql 이름을 mapper 이름에서 가져오는 이유 : 해당 Mapper와 연결됨을 한 눈에 파악하기 위해서. -->
+	<resultMap id="TreeDataMap" type="kr.or.ddit.hr.vo.DepartmentVO">
+	    <!-- DepartmentVO -->
+	    <id property="deptCode" column="deptCode"/>
+	    <result property="deptName" column="deptName"/>
+	    <result property="deptHeader" column="deptHeader"/>
+	    
+	    <!-- TeamVO Collection -->
+	    <collection property="teams" ofType="kr.or.ddit.hr.vo.TeamVO">
+	        <id property="teamCode" column="teamCode"/>
+	        <result property="deptCode" column="deptCode"/>
+	        <result property="teamHeader" column="teamHeader"/>
+	        <result property="teamName" column="teamName"/>
+	        
+	        <!-- EmployeeVO Collection -->
+	        <collection property="employees" ofType="kr.or.ddit.hr.vo.EmployeeVO">
+	            <id property="emplNo" column="emplNo"/>
+	            <result property="emplNm" column="emplNm"/>
+	            <result property="emplPosition" column="emplPosition"/>
+	        </collection>
+	    </collection>
+	</resultMap>
+
+    <!-- SQL 조회 -->
+    <select id="getAllDepartments" resultMap="TreeDataMap">
+       SELECT 
+		      d.dept_code as deptCode
+		    , d.dept_name as deptName
+		    , d.dept_header as deptHeader
+		    , t.team_code as teamCode
+		    , t.dept_code as deptCode 
+		    , t.team_header as teamHeader
+		    , t.team_name as teamName 
+		    , e.empl_no as emplNo
+		    , e.empl_nm as emplNm 
+		    , e.empl_position as emplPosition 
+		FROM 
+		    department d 
+		LEFT JOIN 
+		    team t ON d.dept_code = t.dept_code 
+		LEFT JOIN 
+		    employee e ON t.team_code = e.team_code 
+    </select>
+
+<select id="getTeamMembers" resultType="kr.or.ddit.hr.vo.EmployeeVO">
+    SELECT  DISTINCT 
+          e.empl_no AS emplNo  
+        , e.empl_nm AS emplNm  
+        , d.dept_name AS deptName 
+        , t.team_name AS teamName  
+        , (SELECT c.cc_name 
+           FROM common_code c
+           WHERE c.cg_group = 'POSITION' 
+             AND c.cc_code = e.empl_position
+           FETCH FIRST 1 ROW ONLY) AS ccName
+        , e.empl_email AS emplEmail 
+        , e.empl_telno AS emplTelno  
+        , (SELECT c.cc_name
+           FROM common_code c
+           WHERE c.cg_group = 'DCLZ_TYPE' 
+           AND c.cc_code = (SELECT dl.dclz_type 
+                               FROM diligence_and_laziness dl
+                               WHERE dl.empl_no = e.empl_no 
+                               ORDER BY dl.dclz_no DESC
+                               FETCH FIRST 1 ROW ONLY) 
+            FETCH FIRST 1 ROW ONLY) AS dclzType
+    FROM employee e
+    JOIN team t ON e.team_code = t.team_code
+    JOIN department d ON e.dept_code = d.dept_code
+    JOIN common_code c ON c.cc_code = e.empl_position
+    WHERE t.team_name = #{teamName}
+    ORDER BY e.empl_nm
+</select>
+
+
+
+	<insert id="insertDepartment" parameterType="kr.or.ddit.hr.vo.DepartmentVO">
+		INSERT INTO department (
+			  dept_code
+			, dept_header
+			, dept_name
+		) VALUES (
+			  #{deptCode}
+			, #{deptHeader}
+			, #{deptName}
+		)
+	</insert>
+	
+	<insert id="insertTeam" parameterType="kr.or.ddit.hr.vo.TeamVO">
+		INSERT INTO team (
+			  team_code
+			, dept_code
+			, team_header
+			, team_name
+		) VALUES (
+			  #{teamCode}
+			, #{deptCode}
+			, #{teamHeader}
+			, #{teamName}
+		)
+	</insert>
+	
+	<delete id="deleteTeam" parameterType="string">
+		DELETE FROM team
+			WHERE team_code = #{teamCode}
+	</delete>
+	
+	<delete id="deleteDepartment" parameterType="string">
+		DELETE FROM department
+			WHERE dept_code = #{deptCode}
+	</delete>
+</mapper>

@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.properties.mapper.IPropMapper">
+
+	<sql id="psCodeSearch">
+		<if test="psCode != null and psCode != ''">
+			AND ps_code LIKE '%' || #{psCode} || '%'
+		</if>
+	</sql>
+	<sql id="propNameSearch">
+		<if test="propName != null and propName != ''">
+			AND prop_name LIKE '%' || #{propName} || '%'
+		</if>
+	</sql>
+	<sql id="psCodeSearchList">
+		<if test="prop.psCode != null and prop.psCode != ''">
+			AND ps_code LIKE '%' || #{prop.psCode} || '%'
+		</if>
+	</sql>
+	<sql id="propNameSearchList">
+		<if test="prop.propName != null and prop.propName != ''">
+			AND prop_name LIKE '%' || #{prop.propName} || '%'
+		</if>
+	</sql>
+
+    <resultMap id="PropertiesMap" type="kr.or.ddit.properties.vo.PropertiesVO">
+        <id property="propNo" column="PROP_NO"/>
+        <result property="propName" column="PROP_NAME"/>
+        <result property="propContent" column="PROP_CONTENT"/>
+        <result property="propQty" column="PROP_QTY"/>
+        <result property="psCode" column="PS_CODE"/>
+        <result property="fileIdentify" column="FILE_IDENTIFY"/>
+        <association property="propertiesSort" javaType="kr.or.ddit.properties.vo.PropertiesSortVO">
+            <id property="psCode" column="PS_CODE"/>
+            <result property="psLarge" column="PS_LARGE"/>
+            <result property="psSmall" column="PS_SMALL"/>
+        </association>
+        <association property="empProp" javaType="kr.or.ddit.properties.vo.EmpPropVO">
+            <id property="epNo" column="EP_NO"/>
+            <result property="emplNo" column="EMPL_NO"/>
+            <result property="propNo" column="PROP_NO"/>
+            <result property="epSdate" column="EP_SDATE"/>
+            <result property="epEdate" column="EP_EDATE"/>
+            <result property="epRdate" column="EP_RDATE"/>
+        </association>
+    </resultMap>
+    
+    <resultMap id="PropertiesMap2" type="kr.or.ddit.properties.vo.PropertiesVO">
+        <id property="propNo" column="PROP_NO"/>
+        <result property="propName" column="PROP_NAME"/>
+      <association property="empProp" javaType="kr.or.ddit.properties.vo.EmpPropVO">
+      		<result property="propNo" column="PROP_NO"/>
+            <result property="emplNo" column="EMPL_NO"/>
+            <result property="epSdate" column="EP_SDATE"/>
+            <result property="epEdate" column="EP_EDATE"/>
+            <result property="epRdate" column="EP_RDATE"/>
+        </association>
+    </resultMap>
+    
+    
+
+	<!-- 대여가능한 물품조회 페이지 - 물건 대여신청 -->
+	<insert id="insertRental" parameterType="kr.or.ddit.properties.vo.EmpPropVO">
+	    INSERT INTO emp_prop (
+	          ep_no
+	        , empl_no
+	        , prop_no
+	        , ep_sdate
+	        , ep_edate
+	        , ep_rdate
+	    ) VALUES (
+	        emp_prop_seq.nextval
+	        , #{emplNo}
+	        , #{propNo}
+	        , #{epSdate}
+	        , #{epEdate}
+	        , NULL
+	    )
+	</insert>
+	
+	<!-- 대여가능한 물품조회 페이지 - 물건 대여신청 -->
+	<update id="decreasePropQty" parameterType="INTEGER">
+	    UPDATE properties
+	    SET prop_qty = prop_qty - 1
+	    WHERE prop_no = #{propNo} 
+			AND prop_qty > 0
+	</update>
+	
+	
+	
+	<!-- 대여가능한 물품조회 페이지 - 대여 상태 조회 -->
+	<select id="checkRentalStatus" parameterType="map" resultType="int">
+	    SELECT COUNT(*)
+	    FROM emp_prop
+	    WHERE empl_no = #{emplNo}
+	    AND prop_no = #{propNo}
+	    AND ep_rdate IS NULL
+	</select>
+
+	<!-- 개인 대여 물품확인 페이지 -->
+    <select id="userRentalAll" resultType="map">
+	    SELECT
+	        p.prop_name,
+	        e.prop_no,
+	        e.ep_sdate,
+	        e.ep_edate,
+	        e.ep_rdate,
+	        e.empl_no,
+	        e.ep_no
+	    FROM emp_prop e
+	    RIGHT OUTER JOIN properties p ON p.prop_no = e.prop_no
+	    WHERE e.empl_no = #{emplNo}
+	    ORDER BY 
+	        CASE 
+	            WHEN e.ep_rdate IS NULL THEN 0 
+	            ELSE 1 
+	        END,
+	        e.ep_no DESC
+	</select>
+
+	
+	<!-- 개인 대여 물품확인 페이지 - 반납기능 -->
+	<update id="updateReturnDate" parameterType="kr.or.ddit.properties.vo.PropertiesSortVO">
+		UPDATE EMP_PROP
+	    SET EP_RDATE = SYSDATE
+	    WHERE PROP_NO = #{propNo}
+	    AND EP_RDATE IS NULL
+	</update>
+	
+	<!-- 대여가능한 물품조회 페이지 - 물건 대여반납 -->
+	<update id="updateRentalReturnDate" parameterType="INTEGER">
+	    UPDATE properties
+	    SET prop_qty = prop_qty + 1
+	    WHERE prop_no = #{propNo} 
+	</update>
+	
+	
+	
+	<!-- 사원들에게 제공하는 물품리스트 관리 페이지 -->
+	<select id="findAllWithSort" resultMap="PropertiesMap">
+	    SELECT 
+	        p.prop_no AS PROP_NO
+	        , p.prop_name AS PROP_NAME
+	        , p.prop_content AS PROP_CONTENT
+	        , p.prop_qty AS PROP_QTY
+	        , p.file_identify AS FILE_IDENTIFY
+	        , p.ps_code AS PS_CODE
+	        , COALESCE(ps.ps_code, 'NO_CODE') AS SORT_PS_CODE
+	        , COALESCE(ps.ps_large, '미분류') AS PS_LARGE
+	        , COALESCE(ps.ps_small, '미분류') AS PS_SMALL
+	    FROM properties p
+	    LEFT JOIN properties_sort ps ON p.ps_code = ps.ps_code
+	</select>
+
+	<!-- 사원들에게 제공하는 물품리스트 관리 페이지 - 물품 저장기능 -->
+    <insert id="insertProperty" parameterType="kr.or.ddit.properties.vo.PropertiesVO">  
+        INSERT INTO properties (
+        	prop_no
+        	, ps_code
+        	, prop_name
+        	, prop_content
+        	, prop_qty
+        	, file_identify
+        )
+        VALUES (
+	        properties_seq.NEXTVAL
+	        , #{psCode}
+	        , #{propName}
+	        , #{propContent}
+	        , #{propQty}
+	        , #{fileIdentify}
+        )
+    </insert>	
+    
+	 <!-- 사원들에게 제공하는 물품리스트 관리 페이지 - 물품코드 저장기능 -->
+    <insert id="insertPropertySort" parameterType="kr.or.ddit.properties.vo.PropertiesSortVO">
+        INSERT INTO properties_sort (
+	          ps_code
+	        , ps_large
+	        , ps_small
+        )
+        VALUES (
+	          #{psCode}
+	        , #{psLarge}
+	        , #{psSmall}
+        )
+    </insert>
+    
+    <!-- 사원들에게 제공하는 물품리스트 관리 페이지 -  물품 분류코드 리스트 가져오기 -->
+	<select id="getPropertyCodes" resultType="kr.or.ddit.properties.vo.PropertiesSortVO">
+    	SELECT 
+    		ps_code
+    		, ps_large
+    		, ps_small
+    	FROM properties_sort
+	</select>
+    
+    <!-- 사원들에게 제공하는 물품리스트 관리 페이지 - 개별 물품 데이터 수정 후 저장 -->
+	<select id="getPropertyById" parameterType="int" resultType="kr.or.ddit.properties.vo.PropertiesVO">
+	    SELECT 
+	        prop_no,
+	        prop_name,
+	        prop_content,
+	        prop_qty,
+	        file_identify,
+	        ps_code
+	    FROM properties
+	    WHERE prop_no = #{propNo}
+	</select>
+    
+    <!-- 사원들에게 제공하는 물품리스트 관리 페이지 - 개별 물품 삭제하기 -->
+	<delete id="deleteProperty" parameterType="int">
+    	DELETE 
+    	FROM properties 
+    	WHERE prop_no = #{propNo}
+	</delete>
+	
+    <!-- 사원들에게 제공하는 물품리스트 관리 페이지 - 개별 물품 데이터 수정 후 저장 -->
+	<update id="updateProperty" parameterType="kr.or.ddit.properties.vo.PropertiesVO">
+	    UPDATE properties
+	    SET 
+	        prop_name = COALESCE(#{propName}, prop_name),
+	        prop_content = COALESCE(#{propContent}, prop_content), 
+	        prop_qty = #{propQty},
+	        file_identify = COALESCE(#{fileIdentify}, file_identify),  
+	        ps_code = COALESCE(#{psCode}, ps_code)
+	    WHERE prop_no = #{propNo}
+	</update>	
+
+	<!-- getPropAllList -->
+	<select id="selectPropListCount" resultType="int" parameterType="kr.or.ddit.properties.vo.PropertiesVO">
+		SELECT COUNT(prop_no)
+		FROM properties
+		WHERE 1=1
+			<include refid="psCodeSearch"/>
+			<include refid="propNameSearch"/>
+	</select>
+	
+	<!-- getPropAllList -->
+	<select id="selectPropList" parameterType="map" resultType="kr.or.ddit.properties.vo.PropertiesVO">
+		select * 
+		from (
+		    select prop_no
+		    ,ps_code
+		    ,prop_qty
+		    ,prop_name
+		    ,prop_content
+		    ,file_identify
+		    ,ROW_NUMBER() OVER (ORDER BY a.prop_no DESC) rnum
+		    from (
+		        SELECT *
+		        FROM properties
+		        WHERE 1=1
+		    <include refid="psCodeSearchList"/>
+			<include refid="propNameSearchList"/>
+		        ) a
+		    ) b
+		<![CDATA[
+			WHERE b.rnum >= #{page.startRow} AND b.rnum <= #{page.endRow}
+		]]>
+	</select>
+	
+	
+
+	
+	
+</mapper>

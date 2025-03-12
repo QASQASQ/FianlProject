@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.cmm.mapper.ICmmMapper">
+  	<select id="getEmplList" parameterType="string" resultType="kr.or.ddit.employee.vo.EmployeeVO">
+		SELECT DISTINCT 
+		    e.empl_no,
+		    e.empl_nm,
+		    d.dept_name,
+		    t.team_name as teamCode,
+		    (
+		        SELECT c.cc_name 
+		        FROM common_code c
+		        WHERE c.cg_group = 'POSITION' 
+		        AND c.cc_code = e.empl_position
+		        FETCH FIRST 1 ROW ONLY
+		    ) AS emplPosition,
+		    e.empl_email,
+		    e.empl_telno,
+		    (
+		        SELECT c.cc_name
+		        FROM common_code c
+		        WHERE c.cg_group = 'DCLZ_TYPE' 
+		        AND c.cc_code = (
+		            SELECT dl.dclz_type 
+		            FROM diligence_and_laziness dl
+		            WHERE dl.empl_no = e.empl_no 
+		            ORDER BY dl.dclz_no DESC
+		            FETCH FIRST 1 ROW ONLY
+		        )
+		        FETCH FIRST 1 ROW ONLY
+		    ) AS emplPwd
+		FROM employee e
+		JOIN team t ON e.team_code = t.team_code
+		JOIN department d ON e.dept_code = d.dept_code
+		WHERE d.dept_code = #{deptCode}
+  	</select>
+  	
+  	<select id="getNotice" resultType="kr.or.ddit.board.board.vo.BoardVO">
+	  	SELECT *
+	  	FROM (
+	  		SELECT 
+	  			notice_no as board_no
+				, notice_writer as board_writer
+				, notice_title as board_title
+				, notice_content as board_content
+				, notice_date as board_date
+				, notice_udate as board_udate
+				, notice_hit as board_hit
+				, ROW_NUMBER() OVER(ORDER BY TO_NUMBER(notice_no) DESC) row_num
+	  		FROM notice
+		) a
+	  	<![CDATA[WHERE a.row_num <= 5]]>
+  	</select>
+  	
+  	<select id="getBoard" resultType="kr.or.ddit.board.board.vo.BoardVO">
+	  	SELECT *
+		FROM (
+	  		SELECT 
+	  			board_no
+				, board_writer
+				, board_title
+				, board_content
+				, board_date
+				, board_udate
+				, board_anon
+				, board_hit
+				, ROW_NUMBER() OVER(ORDER BY TO_NUMBER(board_no) DESC) row_num
+			FROM board
+		) a
+		<![CDATA[WHERE a.row_num <= 5]]>
+  	</select>
+  	
+  	<select id="getDocumentCount" resultType="java.util.Map" parameterType="string">
+		SELECT 
+			(
+		        SELECT
+		            COUNT(doc_no)
+		        from DOCUMENT
+		        where writer_no = #{emplNo}
+		        and doc_apv = '01'
+		    ) as doc
+		    ,(
+		    	SELECT
+		    		COUNT(sanctner_no)
+		    	FROM sanctioner
+		    	where sanctner_no = #{empl_no}
+		    	and sanctn_status in('01', '02')
+		    ) as sanc
+		FROM dual
+  	</select>
+  	
+  	<select id="getCalendar" resultType="kr.or.ddit.calendar.vo.CalendarVO" parameterType="map">
+  		
+  			SELECT 
+				sch_no
+			    ,empl_no
+			    ,sch_title
+			    ,TO_CHAR(sch_sdate, 'YYYY-MM-DD HH24:MI:SS') AS sch_sdate
+        		,TO_CHAR(sch_edate, 'YYYY-MM-DD HH24:MI:SS') AS sch_edate
+			    ,sch_allday
+			    ,sch_color
+			    ,sch_textcolor	
+			FROM schedule
+			WHERE empl_no = #{emplNo}
+  			AND	TRUNC(sch_sdate) = TO_DATE(#{today}, 'YYYY-MM-DD')
+  			
+  	</select>
+  	
+</mapper>

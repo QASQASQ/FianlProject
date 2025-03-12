@@ -1,0 +1,69 @@
+<body>
+
+	<div id="global-loader">
+		<div class="page-loader"></div>
+	</div>
+
+	<!-- Main Wrapper -->
+	<div class="main-wrapper">
+
+		<!-- Header -->
+		 <%@ include file="/WEB-INF/views/theme/header.jsp" %>
+		<!-- /Header -->
+
+		<!-- Sidebar -->
+		<%@ include file="/WEB-INF/views/theme/sidebar.jsp" %>
+		<!-- /Sidebar -->
+
+		<!-- 모달창들 -->
+		<%@ include file="/WEB-INF/views/theme/modal.jsp" %>
+		<!-- /모달창들 -->
+		
+		<!-- Page Wrapper -->
+				:
+				:
+				:
+			<!-- Footer -->
+			<%@ include file="/WEB-INF/views/theme/footer.jsp" %>
+			<!-- /Footer -->
+			
+		<!-- /Page Wrapper -->
+	<!-- /Main Wrapper -->
+</body>
+
+<!-- 헤더, 사이드바에서 사용하는 스크립트-->
+<!-- jQuery -->
+<script src="${pageContext.request.contextPath }/assets/js/jquery-3.7.1.min.js"></script>
+
+<!-- Bootstrap Core JS -->
+<script src="${pageContext.request.contextPath }/assets/js/bootstrap.bundle.min.js"></script>
+
+<!-- Feather Icon JS -->
+<script src="${pageContext.request.contextPath }/assets/js/feather.min.js"></script>
+
+<!-- Slimscroll JS -->
+<script src="${pageContext.request.contextPath }/assets/js/jquery.slimscroll.min.js"></script>
+
+<!-- Color Picker JS -->
+<script src="${pageContext.request.contextPath }/assets/plugins/@simonwep/pickr/pickr.es5.min.js"></script>
+
+<!-- Datatable JS -->
+<%-- <script src="${pageContext.request.contextPath }/assets/js/jquery.dataTables.min.js"></script> --%>
+<%-- <script src="${pageContext.request.contextPath }/assets/js/dataTables.bootstrap5.min.js"></script> --%>
+
+<!-- Daterangepikcer JS -->
+<script src="${pageContext.request.contextPath }/assets/js/moment.js"></script>
+<script src="${pageContext.request.contextPath }/assets/plugins/daterangepicker/daterangepicker.js"></script>
+<script src="${pageContext.request.contextPath }/assets/js/bootstrap-datetimepicker.min.js"></script>
+
+<!-- Select2 JS -->
+<script src="${pageContext.request.contextPath }/assets/plugins/select2/js/select2.min.js"></script>
+
+<!-- Chart JS -->
+<%-- <script src="${pageContext.request.contextPath }/assets/plugins/apexchart/apexcharts.min.js"></script> --%>
+<%-- <script src="${pageContext.request.contextPath }/assets/plugins/apexchart/chart-data.js"></script> --%>
+
+<!-- Custom JS -->
+<script src="${pageContext.request.contextPath }/assets/js/circle-progress.js"></script>
+<script src="${pageContext.request.contextPath }/assets/js/theme-colorpicker.js"></script>
+<script src="${pageContext.request.contextPath }/assets/js/script.js"></script>

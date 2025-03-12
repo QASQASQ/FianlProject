@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.cmm.mapper.INotificationMapper">
+
+	<insert id="insertNotification" parameterType="kr.or.ddit.cmm.vo.NotificationVO">
+		INSERT INTO notification (
+			ntcn_no
+			,nt_code
+			,ntcn_recp
+			,ntcn_content
+			,ntcn_date
+			,ntcn_chk
+		) VALUES(
+			notification_seq.nextval
+			, #{ntCode}
+			, #{ntcnRecp}
+			, #{ntcnContent}
+			, sysdate
+			, 'N'
+		)
+	</insert>
+
+	<select id="selectNotificationList" parameterType="string" resultType="kr.or.ddit.cmm.vo.NotificationVO">
+		SELECT 
+			ntcn_no
+			,nt_code
+			, ntcn_recp
+			, ntcn_content
+			, ntcn_date
+			, ntcn_chk
+		FROM notification
+		WHERE ntcn_recp = #{emplNo}
+		ORDER BY ntcn_date DESC
+		FETCH FIRST 5 ROWS ONLY
+	</select>
+</mapper>

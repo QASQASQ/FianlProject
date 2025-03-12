@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.admin.mapper.IAdminMapper">
+	
+	<select id="selectEmplTotalRecord" parameterType="kr.or.ddit.employee.vo.EmployeeVO" resultType="int">
+		SELECT
+			count(empl_no)
+		FROM employee
+		WHERE 1=1
+		<if test="emplNo != null and emplNo != ''">
+			AND empl_no LIKE '%' || #{emplNo} || '%'
+		</if>
+		<if test="emplNm != null and emplNm != ''">
+			AND empl_nm LIKE '%' || #{emplNm} || '%'
+		</if>
+		<if test="emplPosition != null and emplPosition != ''">
+			AND empl_position = #{emplPosition}
+		</if>
+		<if test="deptCode != null and deptCode != ''">
+			AND dept_code = #{deptCode}
+		</if>
+	</select>
+	
+	<select id="selectEmployeeList" parameterType="map" resultType="kr.or.ddit.employee.vo.EmployeeVO">
+		select
+			*
+		from (
+		    select 
+		    	a.*
+		        , ROW_NUMBER() OVER (ORDER BY a.empl_creatdt DESC) rnum
+		    FROM (
+		        SELECT
+				    e.empl_no
+				    ,empl_pwd
+				    , empl_nm
+				    , c.cc_name as empl_position
+				    , d.dept_name as dept_code
+				    , t.team_name as team_code
+				    , empl_signature
+				    , empl_brthdy
+				    , hire_date
+				    , retire_date
+				    , retire_resn
+				    , enable
+				    , profile_imgpath
+				    , basic_salary
+				    , bank_code
+				    , bank_name
+				    , account
+				    , zip_code
+				    , addr_main
+				    , addr_detail
+				    , empl_telno
+				    , empl_gender
+				    , empl_email
+				    , empl_hobby
+				    , empl_mrnry
+				    , householder_at
+				    , vehicle_number
+				    , empl_creatdt
+		        FROM employee e
+		        LEFT JOIN common_code c ON e.EMPL_POSITION = c.cc_code AND c.cg_group = 'POSITION'
+				LEFT JOIN DEPARTMENT d ON e.dept_code = d.dept_code
+				LEFT JOIN TEAM t ON e.team_code = t.team_code
+		        WHERE 1=1
+				<if test="emplVO.emplNo != null and emplVO.emplNo != ''">
+					AND e.empl_no LIKE '%' || #{emplVO.emplNo} || '%'
+				</if>
+				<if test="emplVO.emplNm != null and emplVO.emplNm != ''">
+					AND empl_nm LIKE '%' || #{emplVO.emplNm} || '%'
+				</if>
+				<if test="emplVO.emplPosition != null and emplVO.emplPosition != ''">
+					AND e.empl_position = #{emplVO.emplPosition}
+				</if>
+				<if test="emplVO.deptCode != null and emplVO.deptCode != ''">
+					AND e.dept_code = #{emplVO.deptCode}
+				</if>
+		        ORDER BY empl_creatdt DESC
+		    <include refid="CmmSQL.pagingFooterWithVO"/>
+	</select>
+	
+	<select id="selectEmpl" parameterType="string" resultType="kr.or.ddit.employee.vo.EmployeeVO">
+		SELECT
+			e.empl_no
+			, empl_nm
+			, c.cc_name as empl_position
+			, d.dept_name as dept_code
+			, t.team_name as team_code
+			, empl_brthdy
+			, hire_date
+			, retire_date
+			, retire_resn
+			, enable
+			, profile_imgpath
+			, basic_salary
+			, bank_code
+			, bank_name
+			, account
+			, zip_code
+			, addr_main
+			, addr_detail
+			, empl_telno
+			, empl_gender
+			, empl_email
+			, empl_hobby
+			, empl_mrnry
+			, householder_at
+			, vehicle_number
+		FROM employee e
+		LEFT JOIN common_code c ON e.EMPL_POSITION = c.cc_code AND c.cg_group = 'POSITION'
+		LEFT JOIN DEPARTMENT d ON e.dept_code = d.dept_code
+		LEFT JOIN TEAM t ON e.team_code = t.team_code
+		WHERE empl_no = #{emplNo}
+	</select>
+	
+	<update id="updateDal" parameterType="kr.or.ddit.attendance.vo.DiligenceAndLazinessVO">
+		UPDATE diligence_and_laziness
+		SET 
+			dclz_stime = TO_DATE(#{dclzStime}, 'YYYY-MM-DD HH24:MI:SS')
+			, dclz_etime = TO_DATE(#{dclzEtime}, 'YYYY-MM-DD HH24:MI:SS')
+		WHERE dclz_no = #{dclzNo}
+	</update>
+	
+	<insert id="insertAttendance" parameterType="kr.or.ddit.attendance.vo.DiligenceAndLazinessVO">
+		INSERT INTO diligence_and_laziness (
+		    dclz_no
+		    , empl_no
+		    , dclz_date
+		    , dclz_stime
+		    <if test="dclzEtime != null and dclzEtime != ''">
+				, dclz_etime
+			</if>
+		    , dclz_type
+		)
+		VALUES (
+		    diligence_and_laziness_seq.nextval
+		    , #{emplNo}
+		    , TO_DATE(#{dclzDate}, 'YYYY-MM-DD')
+		    , TO_DATE(#{dclzStime}, 'YYYY-MM-DD HH24:MI')
+		    <if test="dclzEtime != null and dclzEtime != ''">
+		    	, TO_DATE(#{dclzEtime}, 'YYYY-MM-DD HH24:MI')
+	    	</if>
+		    , #{dclzType}
+		)
+	</insert>
+	
+</mapper>

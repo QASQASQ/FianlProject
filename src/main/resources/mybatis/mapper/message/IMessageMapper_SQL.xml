@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.message.mapper.IMessageMapper">
+    <!-- receiverId 즉, mrReceiver를 가져오기 위한 MessageResultMap -->
+    <resultMap id="MessageResultMap" type="kr.or.ddit.message.vo.MessageVO">
+        <id property="msgNo" column="msg_no"/>
+        <result property="msgSender" column="msg_sender"/>
+        <result property="senderName" column="sender_name"/>
+        <result property="msgContent" column="msg_content"/>
+        <result property="msgDate" column="msg_date"/>
+        <result property="msgDel" column="msg_del"/>
+        <result property="receiverId" column="receiver_id"/>
+        <result property="receiverName" column="receiver_name"/>
+    </resultMap>
+
+    <!-- 사원명 혹은 사원번호에 해당하는 직원 조회 -->
+    <select id="selectEmployee" parameterType="String" resultType="kr.or.ddit.employee.vo.EmployeeVO">
+        SELECT 
+              empl_no
+            , empl_nm
+        FROM employee
+        WHERE empl_no = #{receiver} OR empl_nm = #{receiver}
+    </select>
+
+    <!-- 📨 수신자 정보 저장 -->
+    <insert id="insertReceiver" parameterType="kr.or.ddit.message.vo.MessageReceiverVO">
+        <selectKey keyProperty="mrNo" resultType="Long" order="BEFORE">
+            SELECT msg_receiver_seq.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO msg_receiver (
+              mr_no
+            , msg_no
+            , mr_receiver
+            , mr_date
+            , mr_del)
+        VALUES (
+              #{mrNo}
+            , #{msgNo}
+            , #{mrReceiver}
+            , SYSDATE
+            , 'N'
+        )
+    </insert>
+
+    <!-- 검색 필터링을 위한 MessageResultMap -->
+    <select id="getFilteredMessages" parameterType="map" resultMap="MessageResultMap">
+        SELECT 
+              m.msg_no
+            , m.msg_sender
+            , m.msg_content
+            , m.msg_date
+            , r.mr_del
+            , r.mr_receiver AS receiver_id
+        FROM message m
+        JOIN msg_receiver r ON m.msg_no = r.msg_no
+        WHERE r.mr_receiver = #{userId} 
+        AND r.mr_del = 'N'
+        <if test="filterDate != null and filterDate != ''">
+            AND TO_CHAR(m.msg_date, 'YYYY-MM-DD') = #{filterDate}
+        </if>
+        <if test="filterContent != null and filterContent != ''">
+            AND LOWER(m.msg_content) LIKE '%' || #{filterContent} || '%'
+        </if>
+        ORDER BY m.msg_date DESC
+    </select>
+
+
+    <!-- 📨 메시지 저장 -->
+    <insert id="sendMessage" parameterType="kr.or.ddit.message.vo.MessageVO">
+        <selectKey keyProperty="msgNo" resultType="Long" order="BEFORE">
+            SELECT message_seq.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT INTO message (
+              msg_no
+            , msg_sender
+            , msg_content
+            , msg_date
+            , msg_del
+        )
+        VALUES (
+              #{msgNo}
+            , #{msgSender}
+            , #{msgContent}
+            , SYSDATE
+            , 'N'
+        )
+    </insert>
+
+    <!-- 📨 받은 쪽지 목록 조회 -->
+    <select id="getReceivedMessages" parameterType="String" resultMap="MessageResultMap">
+        SELECT 
+              m.msg_no
+            , m.msg_sender
+            , e1.empl_nm || ' (' || e1.empl_no || ')' AS sender_name
+            , m.msg_content
+            , m.msg_date
+            , r.mr_del
+            , r.mr_receiver AS receiver_id,
+            e2.empl_nm || ' (' || e2.empl_no || ')' AS receiver_name
+        FROM message m
+        JOIN msg_receiver r ON m.msg_no = r.msg_no
+        JOIN employee e1 ON m.msg_sender = e1.empl_no 
+        JOIN employee e2 ON r.mr_receiver = e2.empl_no 
+        WHERE r.mr_receiver = #{mrReceiver} 
+        AND r.mr_del = 'N'
+        ORDER BY m.msg_date DESC
+    </select>
+
+
+    <!-- 📤 보낸 쪽지 목록 조회 -->
+    <select id="getSentMessages" resultMap="MessageResultMap">
+        SELECT 
+              m.msg_no
+            , m.msg_sender
+            , e1.empl_nm || ' (' || e1.empl_no || ')' AS sender_name
+            , m.msg_content
+            , m.msg_date
+            , m.msg_del
+            , LISTAGG(r.mr_receiver, ',') WITHIN GROUP (ORDER BY r.mr_receiver) AS receiver_id
+            , LISTAGG(e2.empl_nm || ' (' || e2.empl_no || ')', ',') WITHIN GROUP (ORDER BY e2.empl_no) AS receiver_name
+        FROM message m
+        LEFT JOIN msg_receiver r ON m.msg_no = r.msg_no
+        LEFT JOIN employee e1 ON m.msg_sender = e1.empl_no  
+        LEFT JOIN employee e2 ON r.mr_receiver = e2.empl_no 
+        WHERE m.msg_sender = #{userId}
+        AND m.msg_del = 'N'
+        GROUP BY 
+              m.msg_no
+            , m.msg_sender
+            , e1.empl_nm
+            , e1.empl_no
+            , m.msg_content
+            , m.msg_date
+            , m.msg_del
+        ORDER BY m.msg_date DESC
+    </select>
+
+    <!-- 🗑 휴지통 목록 조회 -->
+    <select id="getTrashMessages" parameterType="String" resultMap="MessageResultMap">
+        SELECT 
+              m.msg_no
+            , m.msg_sender
+            , e1.empl_nm || ' (' || e1.empl_no || ')' AS sender_name
+            , m.msg_content
+            , m.msg_date
+            , m.msg_del
+            , LISTAGG(r.mr_receiver, ',') WITHIN GROUP (ORDER BY r.mr_receiver) AS receiver_id
+            , LISTAGG(e2.empl_nm || ' (' || e2.empl_no || ')', ',') WITHIN GROUP (ORDER BY e2.empl_no) AS receiver_name
+            , r.mr_del
+        FROM message m
+        LEFT JOIN msg_receiver r ON m.msg_no = r.msg_no
+        LEFT JOIN employee e1 ON m.msg_sender = e1.empl_no  
+        LEFT JOIN employee e2 ON r.mr_receiver = e2.empl_no 
+        WHERE (m.msg_del = 'Y' OR r.mr_del = 'Y')
+        AND (m.msg_sender = #{userId} OR r.mr_receiver = #{userId})
+        GROUP BY 
+              m.msg_no
+            , m.msg_sender
+            , e1.empl_nm
+            , e1.empl_no
+            , m.msg_content
+            , m.msg_date
+            , m.msg_del
+            , r.mr_del
+        ORDER BY m.msg_date DESC
+    </select>
+
+
+    <!-- 보낸 쪽지 휴지통으로 이동 -->
+    <update id="moveToTrashSent" parameterType="int">
+        UPDATE message 
+        SET msg_del = 'Y' 
+        WHERE msg_no = #{msgNo}
+    </update>
+
+    <!-- 받은 쪽지 휴지통으로 이동 -->
+    <update id="moveToTrashReceived">
+        UPDATE msg_receiver 
+        SET mr_del = 'Y' 
+        WHERE msg_no = #{msgNo} AND mr_receiver = #{userId}
+    </update>
+
+    <!-- 보낸 쪽지 복원 -->
+    <update id="restoreSentMessage" parameterType="int">
+        UPDATE message 
+        SET msg_del = 'N' 
+        WHERE msg_no = #{msgNo}
+    </update>
+
+    <!-- 받은 쪽지 복원 -->
+    <update id="restoreReceivedMessage">
+        UPDATE msg_receiver 
+        SET mr_del = 'N' 
+        WHERE msg_no = #{msgNo} AND mr_receiver = #{userId}
+    </update>
+
+    <!-- 📢 알림(Notification) 저장 -->
+<!--     
+	<insert id="insertNotification" parameterType="kr.or.ddit.message.vo.NotificationVO">
+        INSERT INTO notification (
+              ntcn_no
+            , nt_code
+            , ntcn_recp
+            , ntcn_content
+            , ntcn_date
+            , ntcn_chk)
+        VALUES (
+              notification_seq.NEXTVAL
+            , #{ntCode}
+            , #{ntcnRecp}
+            , #{ntcnContent}
+            , SYSDATE
+            , 'N')
+    </insert> 
+-->
+
+    <!-- 🔔 특정 사용자의 알림 조회 -->
+<!--
+     <select id="getNotifications" parameterType="string" resultType="kr.or.ddit.message.vo.NotificationVO">
+        SELECT * FROM notification 
+        WHERE ntcn_recp = #{receiverId} 
+        ORDER BY ntcn_date DESC
+    </select> 
+-->
+
+    <!-- ✅ 쪽지 읽음 처리 -->
+    <update id="markAsRead" parameterType="int">
+        UPDATE msg_receiver
+        SET mr_read = 'Y'
+        WHERE msg_no = #{msgNo}
+    </update>
+
+    <!-- 📩 받은 쪽지 개수 -->
+    <select id="countReceivedMessages" resultType="int">
+        SELECT COUNT(*) 
+        FROM message m
+        JOIN msg_receiver r ON m.msg_no = r.msg_no
+        WHERE r.mr_receiver = #{userId} 
+        AND r.mr_del = 'N'
+    </select>
+
+    <!-- 📤 보낸 쪽지 개수 -->
+    <select id="countSentMessages" resultType="int">
+        SELECT COUNT(*) 
+        FROM message 
+        WHERE msg_sender = #{userId} 
+        AND msg_del = 'N'
+    </select>
+
+    <!-- 🗑 휴지통 개수 -->
+    <select id="countTrashMessages" resultType="int">
+        SELECT COUNT(DISTINCT m.msg_no) 
+        FROM message m 
+        LEFT JOIN msg_receiver r ON m.msg_no = r.msg_no 
+        WHERE (m.msg_del = 'Y' OR r.mr_del = 'Y') 
+        AND (m.msg_sender = #{userId} OR r.mr_receiver = #{userId})
+    </select>
+
+    <!-- ❌ 쪽지 완전 삭제 -->
+    <delete id="deleteMessage">
+        DELETE FROM message WHERE msg_no = #{msgNo}
+    </delete>
+
+    <!-- 📨 쪽지 상세 보기 -->
+    <select id="getMessageDetail" parameterType="Long" resultType="kr.or.ddit.message.vo.MessageVO">
+        SELECT 
+              m.msg_no
+            , m.msg_sender
+            , m.msg_content
+            , m.msg_date
+            , m.msg_del
+        FROM message m
+        WHERE m.msg_no = #{msgNo}
+    </select>
+
+   <!-- 🗑 보낸 쪽지 일괄 삭제 -->
+    <delete id="batchDeleteSentMessages">
+        DELETE FROM message 
+        WHERE msg_no IN 
+        <foreach item="msgNo" collection="msgNos" open="(" separator="," close=")">
+            #{msgNo}
+        </foreach>
+        AND msg_sender = #{userId}
+    </delete>
+
+    <!-- 🗑 받은 쪽지 일괄 삭제 -->
+    <delete id="batchDeleteReceivedMessages">
+        DELETE FROM msg_receiver 
+        WHERE msg_no IN 
+        <foreach item="msgNo" collection="msgNos" open="(" separator="," close=")">
+            #{msgNo}
+        </foreach>
+        AND mr_receiver = #{userId}
+    </delete>
+
+    <!-- 📌 보낸 쪽지 일괄 휴지통 이동 -->
+    <update id="batchMoveSentMessagesToTrash">
+        UPDATE message 
+        SET msg_del = 'Y'
+        WHERE msg_no IN 
+        <foreach item="msgNo" collection="msgNos" open="(" separator="," close=")">
+            #{msgNo}
+        </foreach>
+        AND msg_sender = #{userId}
+    </update>
+
+    <!-- 📌 받은 쪽지 일괄 휴지통 이동 -->
+    <update id="batchMoveReceivedMessagesToTrash">
+        UPDATE msg_receiver 
+        SET mr_del = 'Y'
+        WHERE msg_no IN 
+        <foreach item="msgNo" collection="msgNos" open="(" separator="," close=")">
+            #{msgNo}
+        </foreach>
+        AND mr_receiver = #{userId}
+    </update>
+
+    <!-- ✅ 보낸 쪽지 일괄 복원 -->
+    <update id="batchRestoreSentMessages">
+        UPDATE message 
+        SET msg_del = 'N'
+        WHERE msg_no IN 
+        <foreach item="msgNo" collection="msgNos" open="(" separator="," close=")">
+            #{msgNo}
+        </foreach>
+        AND msg_sender = #{userId}
+    </update>
+
+    <!-- ✅ 받은 쪽지 일괄 복원 -->
+    <update id="batchRestoreReceivedMessages">
+        UPDATE msg_receiver 
+        SET mr_del = 'N'
+        WHERE msg_no IN 
+        <foreach item="msgNo" collection="msgNos" open="(" separator="," close=")">
+            #{msgNo}
+        </foreach>
+        AND mr_receiver = #{userId}
+    </update>
+
+    <resultMap id="employeeResultMap" type="kr.or.ddit.employee.vo.EmployeeVO">
+        <result property="emplNo" column="사원번호"/>
+        <result property="emplNm" column="사원명"/>
+        <result property="deptName" column="부서명"/>
+        <result property="ccName" column="직책"/>
+    </resultMap>
+
+
+   <!-- ✅ 사원 검색 -->
+    <select id="searchEmployees" parameterType="string" resultMap="employeeResultMap">
+        SELECT
+              e.empl_no AS 사원번호
+            , e.empl_nm AS 사원명
+            , d.dept_name AS 부서명
+            , c.cc_name AS 직책
+        FROM employee e
+        LEFT JOIN department d ON e.dept_code = d.dept_code
+        LEFT JOIN common_code c
+            ON e.empl_position = c.cc_code
+            AND c.cg_group = 'POSITION'
+        WHERE (e.empl_nm LIKE '%' || #{query} || '%'
+            OR e.empl_no LIKE '%' || #{query} || '%')
+        ORDER BY e.empl_nm
+    </select>
+</mapper>

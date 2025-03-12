@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CmmSQL">
+  	
+  	<sql id="pagingFooter">
+			) a
+		) b
+		WHERE b.rnum BETWEEN #{startRow} AND #{endRow}
+  	</sql>
+  	
+  	<!-- 파라미터가 여러개일때 -->
+  	<sql id="pagingFooterWithVO">
+			) a
+		) b
+		WHERE b.rnum BETWEEN #{pageVO.startRow} AND #{pageVO.endRow}
+  	</sql>
+</mapper>
